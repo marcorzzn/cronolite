@@ -1,282 +1,282 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Temporal Portal</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
-    
-    <style>
-        /* --- ESTETICA GENERALE --- */
-        :root {
-            --glass-bg: rgba(0, 0, 0, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
-            --neon-accent: #00ffcc;
-            --text-main: #ffffff;
-            --text-dim: #aaaaaa;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Temporal Portal</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
+    
+    <style>
+        /* --- ESTETICA GENERALE --- */
+        :root {
+            --glass-bg: rgba(0, 0, 0, 0.65);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --neon-accent: #00ffcc;
+            --text-main: #ffffff;
+            --text-dim: #aaaaaa;
+        }
 
-        body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Courier New', Courier, monospace; /* Font monospaziato per numeri stabili */
-            color: var(--text-main);
-            background-color: #000;
-            transition: background-image 1s ease-in-out;
-        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Courier New', Courier, monospace; /* Font monospaziato per numeri stabili */
+            color: var(--text-main);
+            background-color: #000;
+            transition: background-image 1s ease-in-out;
+        }
 
-        /* Sfondo che cambia */
-        #bg-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover;
-            background-position: center;
-            z-index: -1;
-            transition: opacity 0.5s ease;
-            filter: brightness(0.6);
-        }
+        /* Sfondo che cambia */
+        #bg-layer {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover;
+            background-position: center;
+            z-index: -1;
+            transition: opacity 0.5s ease;
+            filter: brightness(0.6);
+        }
 
-        /* --- CONTENITORE PRINCIPALE (HUD) --- */
-        .container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            backdrop-filter: blur(8px); /* Effetto vetro smerigliato */
-        }
+        /* --- CONTENITORE PRINCIPALE (HUD) --- */
+        .container {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            backdrop-filter: blur(8px); /* Effetto vetro smerigliato */
+        }
 
-        /* --- SELETTORE PORTALI --- */
-        .portal-selector {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
+        /* --- SELETTORE PORTALI --- */
+        .portal-selector {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 40px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
 
-        .portal-btn {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid var(--glass-border);
-            color: var(--text-dim);
-            padding: 8px 16px;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
-            transition: all 0.3s;
-        }
+        .portal-btn {
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--glass-border);
+            color: var(--text-dim);
+            padding: 8px 16px;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
 
-        .portal-btn:hover, .portal-btn.active {
-            color: var(--neon-accent);
-            border-color: var(--neon-accent);
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
-        }
+        .portal-btn:hover, .portal-btn.active {
+            color: var(--neon-accent);
+            border-color: var(--neon-accent);
+            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
+        }
 
-        /* --- OROLOGIO PRINCIPALE --- */
-        .main-clock {
-            font-size: 5rem;
-            font-weight: bold;
-            text-shadow: 0 0 20px rgba(0,0,0,0.8);
-            /* Tabular-nums è FONDAMENTALE: impedisce ai numeri di "ballare" quando cambiano larghezza */
-            font-variant-numeric: tabular-nums; 
-            line-height: 1;
-            margin-bottom: 10px;
-        }
+        /* --- OROLOGIO PRINCIPALE --- */
+        .main-clock {
+            font-size: 5rem;
+            font-weight: bold;
+            text-shadow: 0 0 20px rgba(0,0,0,0.8);
+            /* Tabular-nums è FONDAMENTALE: impedisce ai numeri di "ballare" quando cambiano larghezza */
+            font-variant-numeric: tabular-nums; 
+            line-height: 1;
+            margin-bottom: 10px;
+        }
 
-        .milliseconds {
-            font-size: 2rem;
-            color: var(--neon-accent);
-            opacity: 0.8;
-        }
+        .milliseconds {
+            font-size: 2rem;
+            color: var(--neon-accent);
+            opacity: 0.8;
+        }
 
-        /* --- DATI DETTAGLIATI --- */
-        .meta-data-grid {
-            display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            background: var(--glass-bg);
-            padding: 30px;
-            border-radius: 4px;
-            border: 1px solid var(--glass-border);
-            max-width: 600px;
-            width: 90%;
-            margin-top: 20px;
-        }
+        /* --- DATI DETTAGLIATI --- */
+        .meta-data-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+            background: var(--glass-bg);
+            padding: 30px;
+            border-radius: 4px;
+            border: 1px solid var(--glass-border);
+            max-width: 600px;
+            width: 90%;
+            margin-top: 20px;
+        }
 
-        .data-item {
-            display: flex;
-            flex-direction: column;
-        }
+        .data-item {
+            display: flex;
+            flex-direction: column;
+        }
 
-        .label {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
-        }
+        .label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 5px;
+        }
 
-        .value {
-            font-size: 1.2rem;
-            font-weight: bold;
-        }
+        .value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
 
-        .value-large {
-            font-size: 1.5rem;
-            color: #fff;
-        }
+        .value-large {
+            font-size: 1.5rem;
+            color: #fff;
+        }
 
-        /* --- INFO TECNICHE --- */
-        .tech-footer {
-            margin-top: 40px;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            display: flex;
-            gap: 20px;
-        }
+        /* --- INFO TECNICHE --- */
+        .tech-footer {
+            margin-top: 40px;
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            display: flex;
+            gap: 20px;
+        }
 
-        .status-dot {
-            height: 8px; width: 8px;
-            background-color: var(--neon-accent);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            animation: pulse 2s infinite;
-        }
+        .status-dot {
+            height: 8px; width: 8px;
+            background-color: var(--neon-accent);
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+            animation: pulse 2s infinite;
+        }
 
-        @keyframes pulse {
-            0% { opacity: 0.4; }
-            50% { opacity: 1; }
-            100% { opacity: 0.4; }
-        }
+        @keyframes pulse {
+            0% { opacity: 0.4; }
+            50% { opacity: 1; }
+            100% { opacity: 0.4; }
+        }
 
-        /* Responsive */
-        @media (max-width: 600px) {
-            .main-clock { font-size: 3rem; }
-            .milliseconds { font-size: 1.5rem; }
-            .meta-data-grid { grid-template-columns: 1fr; }
-        }
-    </style>
+        /* Responsive */
+        @media (max-width: 600px) {
+            .main-clock { font-size: 3rem; }
+            .milliseconds { font-size: 1.5rem; }
+            .meta-data-grid { grid-template-columns: 1fr; }
+        }
+    </style>
 </head>
 <body>
 
-    <div id="bg-layer" style="background-image: url('https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop');"></div>
+    <div id="bg-layer" style="background-image: url('https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop');"></div>
 
-    <div class="container">
-        
-        <div class="portal-selector">
-            <button class="portal-btn active" onclick="switchPortal('Europe/Rome', 'Roma', 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop')">ROMA</button>
-            <button class="portal-btn" onclick="switchPortal('America/New_York', 'New York', 'https://images.unsplash.com/photo-1496442226666-8d4a0e62e6e9?q=80&w=1920&auto=format&fit=crop')">NEW YORK</button>
-            <button class="portal-btn" onclick="switchPortal('Asia/Tokyo', 'Tokyo', 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1920&auto=format&fit=crop')">TOKYO</button>
-            <button class="portal-btn" onclick="switchPortal('Europe/London', 'Londra', 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1920&auto=format&fit=crop')">LONDRA</button>
-            <button class="portal-btn" onclick="switchPortal('utc', 'Universale (UTC)', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop')">ORBITA (UTC)</button>
-        </div>
+    <div class="container">
+        
+        <div class="portal-selector">
+            <button class="portal-btn active" onclick="switchPortal('Europe/Rome', 'Roma', 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop')">ROMA</button>
+            <button class="portal-btn" onclick="switchPortal('America/New_York', 'New York', 'https://images.unsplash.com/photo-1496442226666-8d4a0e62e6e9?q=80&w=1920&auto=format&fit=crop')">NEW YORK</button>
+            <button class="portal-btn" onclick="switchPortal('Asia/Tokyo', 'Tokyo', 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1920&auto=format&fit=crop')">TOKYO</button>
+            <button class="portal-btn" onclick="switchPortal('Europe/London', 'Londra', 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1920&auto=format&fit=crop')">LONDRA</button>
+            <button class="portal-btn" onclick="switchPortal('utc', 'Universale (UTC)', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop')">ORBITA (UTC)</button>
+        </div>
 
-        <div class="main-clock">
-            <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.000</span>
-        </div>
+        <div class="main-clock">
+            <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.000</span>
+        </div>
 
-        <div class="meta-data-grid">
-            <div class="data-item">
-                <span class="label">Coordinate Temporali</span>
-                <span class="value" id="full-date">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Ciclo Settimanale</span>
-                <span class="value">Settimana <span id="week-num">--</span> / Giorno <span id="day-year">--</span></span>
-            </div>
-            <div class="data-item">
-                <span class="label">Status Solare (DST)</span>
-                <span class="value" id="dst-status">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Era Umana (Olocene)</span>
-                <span class="value value-large" id="human-era">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Secolo Corrente</span>
-                <span class="value" id="century">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Offset UTC</span>
-                <span class="value" id="utc-offset">---</span>
-            </div>
-        </div>
+        <div class="meta-data-grid">
+            <div class="data-item">
+                <span class="label">Coordinate Temporali</span>
+                <span class="value" id="full-date">---</span>
+            </div>
+            <div class="data-item">
+                <span class="label">Ciclo Settimanale</span>
+                <span class="value">Settimana <span id="week-num">--</span> / Giorno <span id="day-year">--</span></span>
+            </div>
+            <div class="data-item">
+                <span class="label">Status Solare (DST)</span>
+                <span class="value" id="dst-status">---</span>
+            </div>
+            <div class="data-item">
+                <span class="label">Era Umana (Olocene)</span>
+                <span class="value value-large" id="human-era">---</span>
+            </div>
+            <div class="data-item">
+                <span class="label">Secolo Corrente</span>
+                <span class="value" id="century">---</span>
+            </div>
+            <div class="data-item">
+                <span class="label">Offset UTC</span>
+                <span class="value" id="utc-offset">---</span>
+            </div>
+        </div>
 
-        <div class="tech-footer">
-            <span><span class="status-dot"></span>SYNC: ATOMIC</span>
-            <span id="timezone-debug">Zone: Europe/Rome</span>
-        </div>
-    </div>
+        <div class="tech-footer">
+            <span><span class="status-dot"></span>SYNC: ATOMIC</span>
+            <span id="timezone-debug">Zone: Europe/Rome</span>
+        </div>
+    </div>
 
-    <script>
-        // Setup Variabili
-        const DateTime = luxon.DateTime;
-        let currentZone = "Europe/Rome";
-        
-        // Funzione per cambiare portale (Città)
-        function switchPortal(zone, cityName, bgUrl) {
-            currentZone = zone;
-            
-            // Aggiorna sfondo
-            document.getElementById('bg-layer').style.backgroundImage = `url('${bgUrl}')`;
-            
-            // Aggiorna label debug
-            document.getElementById('timezone-debug').innerText = `Zone: ${zone}`;
+    <script>
+        // Setup Variabili
+        const DateTime = luxon.DateTime;
+        let currentZone = "Europe/Rome";
+        
+        // Funzione per cambiare portale (Città)
+        function switchPortal(zone, cityName, bgUrl) {
+            currentZone = zone;
+            
+            // Aggiorna sfondo
+            document.getElementById('bg-layer').style.backgroundImage = `url('${bgUrl}')`;
+            
+            // Aggiorna label debug
+            document.getElementById('timezone-debug').innerText = `Zone: ${zone}`;
 
-            // Gestione classi bottoni
-            document.querySelectorAll('.portal-btn').forEach(btn => btn.classList.remove('active'));
-            event.target.classList.add('active');
-        }
+            // Gestione classi bottoni
+            document.querySelectorAll('.portal-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+        }
 
-        // Funzione di aggiornamento (Loop principale)
-        function updateTime() {
-            // Ottiene l'ora corrente nel fuso orario selezionato
-            const now = DateTime.now().setZone(currentZone);
+        // Funzione di aggiornamento (Loop principale)
+        function updateTime() {
+            // Ottiene l'ora corrente nel fuso orario selezionato
+            const now = DateTime.now().setZone(currentZone);
 
-            // 1. OROLOGIO PRINCIPALE
-            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
-            // Millisecondi formattati a 3 cifre
-            document.getElementById('clock-ms').innerText = "." + now.toFormat('SSS');
+            // 1. OROLOGIO PRINCIPALE
+            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
+            // Millisecondi formattati a 3 cifre
+            document.getElementById('clock-ms').innerText = "." + now.toFormat('SSS');
 
-            // 2. DATA ESTESA
-            // Es: Lunedì, 24 Ottobre 2024
-            document.getElementById('full-date').innerText = now.setLocale('it').toFormat('cccc, dd MMMM yyyy');
+            // 2. DATA ESTESA
+            // Es: Lunedì, 24 Ottobre 2024
+            document.getElementById('full-date').innerText = now.setLocale('it').toFormat('cccc, dd MMMM yyyy');
 
-            // 3. CICLI (Settimana e Giorno anno)
-            document.getElementById('week-num').innerText = now.weekNumber;
-            document.getElementById('day-year').innerText = now.ordinal; // Giorno da 1 a 365/366
+            // 3. CICLI (Settimana e Giorno anno)
+            document.getElementById('week-num').innerText = now.weekNumber;
+            document.getElementById('day-year').innerText = now.ordinal; // Giorno da 1 a 365/366
 
-            // 4. DST (Ora Legale)
-            // Luxon ci dice se l'ora legale è attiva in quel luogo ORA
-            const isDST = now.isInDST; 
-            const offsetName = now.offsetNameShort; // Es: CET o CEST
-            document.getElementById('dst-status').innerText = isDST ? `ATTIVA (${offsetName})` : `NON ATTIVA (${offsetName})`;
-            document.getElementById('dst-status').style.color = isDST ? '#00ffcc' : '#aaaaaa';
+            // 4. DST (Ora Legale)
+            // Luxon ci dice se l'ora legale è attiva in quel luogo ORA
+            const isDST = now.isInDST; 
+            const offsetName = now.offsetNameShort; // Es: CET o CEST
+            document.getElementById('dst-status').innerText = isDST ? `ATTIVA (${offsetName})` : `NON ATTIVA (${offsetName})`;
+            document.getElementById('dst-status').style.color = isDST ? '#00ffcc' : '#aaaaaa';
 
-            // 5. ERA UMANA (Calendario Olocene)
-            // Aggiungiamo 10.000 anni all'anno corrente
-            const humanYear = now.year + 10000;
-            document.getElementById('human-era').innerText = `${humanYear} HE`;
+            // 5. ERA UMANA (Calendario Olocene)
+            // Aggiungiamo 10.000 anni all'anno corrente
+            const humanYear = now.year + 10000;
+            document.getElementById('human-era').innerText = `${humanYear} HE`;
 
-            // 6. SECOLO
-            const century = Math.ceil(now.year / 100);
-            document.getElementById('century').innerText = `${century}°`;
+            // 6. SECOLO
+            const century = Math.ceil(now.year / 100);
+            document.getElementById('century').innerText = `${century}°`;
 
-            // 7. OFFSET
-            document.getElementById('utc-offset').innerText = now.toFormat('Z');
+            // 7. OFFSET
+            document.getElementById('utc-offset').innerText = now.toFormat('Z');
 
-            // Richiede il prossimo frame (per fluidità millisecondi)
-            requestAnimationFrame(updateTime);
-        }
+            // Richiede il prossimo frame (per fluidità millisecondi)
+            requestAnimationFrame(updateTime);
+        }
 
-        // Avvia il loop
-        requestAnimationFrame(updateTime);
+        // Avvia il loop
+        requestAnimationFrame(updateTime);
 
-    </script>
+    </script>
 </body>
 </html>
