@@ -3,280 +3,274 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Universal Temporal Portal</title>
+    <title>cronoLite // Universal Portal</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <script src="https://unpkg.com/topojson@3"></script>
     
     <style>
-        /* --- ESTETICA GENERALE --- */
+        /* --- STILI CYBER/NEON --- */
         :root {
-            --glass-bg: rgba(0, 0, 0, 0.65);
-            --glass-border: rgba(255, 255, 255, 0.1);
+            --glass-bg: rgba(10, 15, 20, 0.75);
+            --glass-border: rgba(0, 255, 204, 0.2);
             --neon-accent: #00ffcc;
-            --text-main: #ffffff;
-            --text-dim: #aaaaaa;
+            --neon-secondary: #ff0055;
+            --text-main: #e0e0e0;
+            --text-dim: #7aa;
+            --map-ocean: rgba(12, 20, 30, 0.6);
+            --map-land: #1a252f;
+            --map-night: rgba(0, 0, 0, 0.55);
+            --map-border: rgba(255, 255, 255, 0.1); /* Bordi molto sottili per le province */
         }
 
         body, html {
-            margin: 0;
-            padding: 0;
-            height: 100%;
-            overflow: hidden;
-            font-family: 'Courier New', Courier, monospace; /* Font monospaziato per numeri stabili */
+            margin: 0; padding: 0; height: 100%; overflow: hidden;
+            font-family: 'Courier New', Courier, monospace;
             color: var(--text-main);
-            background-color: #000;
-            transition: background-image 1s ease-in-out;
+            background-color: #050505;
         }
 
-        /* Sfondo che cambia */
-        #bg-layer {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            background-size: cover;
-            background-position: center;
-            z-index: -1;
-            transition: opacity 0.5s ease;
-            filter: brightness(0.6);
-        }
-
-        /* --- CONTENITORE PRINCIPALE (HUD) --- */
-        .container {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            backdrop-filter: blur(8px); /* Effetto vetro smerigliato */
-        }
-
-        /* --- SELETTORE PORTALI --- */
-        .portal-selector {
-            display: flex;
-            gap: 15px;
-            margin-bottom: 40px;
-            flex-wrap: wrap;
-            justify-content: center;
-        }
-
-        .portal-btn {
-            background: rgba(0,0,0,0.5);
-            border: 1px solid var(--glass-border);
-            color: var(--text-dim);
-            padding: 8px 16px;
-            cursor: pointer;
-            text-transform: uppercase;
-            font-size: 0.8rem;
-            letter-spacing: 2px;
-            transition: all 0.3s;
-        }
-
-        .portal-btn:hover, .portal-btn.active {
-            color: var(--neon-accent);
-            border-color: var(--neon-accent);
-            box-shadow: 0 0 10px rgba(0, 255, 204, 0.2);
-        }
-
-        /* --- OROLOGIO PRINCIPALE --- */
-        .main-clock {
-            font-size: 5rem;
-            font-weight: bold;
-            text-shadow: 0 0 20px rgba(0,0,0,0.8);
-            /* Tabular-nums è FONDAMENTALE: impedisce ai numeri di "ballare" quando cambiano larghezza */
-            font-variant-numeric: tabular-nums; 
-            line-height: 1;
-            margin-bottom: 10px;
-        }
-
-        .milliseconds {
-            font-size: 2rem;
-            color: var(--neon-accent);
-            opacity: 0.8;
-        }
-
-        /* --- DATI DETTAGLIATI --- */
-        .meta-data-grid {
+        #app-container {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 20px;
-            background: var(--glass-bg);
-            padding: 30px;
-            border-radius: 4px;
-            border: 1px solid var(--glass-border);
-            max-width: 600px;
-            width: 90%;
-            margin-top: 20px;
+            grid-template-rows: auto 1fr;
+            height: 100vh; width: 100vw;
+            position: relative; z-index: 2;
         }
 
-        .data-item {
-            display: flex;
-            flex-direction: column;
+        #bg-layer {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background-size: cover; background-position: center;
+            z-index: 0; transition: opacity 0.5s ease;
+            filter: brightness(0.4) blur(3px);
         }
 
-        .label {
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-bottom: 5px;
+        /* HUD Header */
+        .hud-header {
+            padding: 15px 25px;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.9), rgba(0,0,0,0.0));
+            display: flex; justify-content: space-between; align-items: center;
+            backdrop-filter: blur(5px); border-bottom: 1px solid rgba(255,255,255,0.05);
         }
 
-        .value {
-            font-size: 1.2rem;
-            font-weight: bold;
+        .main-clock {
+            font-size: 3rem; font-weight: bold;
+            text-shadow: 0 0 15px rgba(0, 255, 204, 0.4);
+            font-variant-numeric: tabular-nums; line-height: 1; color: #fff;
+        }
+        .milliseconds { font-size: 1.2rem; color: var(--neon-accent); opacity: 0.9; }
+        
+        .meta-info {
+            font-size: 0.75rem; color: var(--text-dim); margin-top: 5px;
+            display: flex; gap: 15px; text-transform: uppercase; letter-spacing: 1px;
         }
 
-        .value-large {
-            font-size: 1.5rem;
-            color: #fff;
+        .portal-selector { display: flex; gap: 10px; }
+        .portal-btn {
+            background: rgba(0,0,0,0.6); border: 1px solid var(--glass-border);
+            color: var(--text-dim); padding: 5px 12px; cursor: pointer;
+            text-transform: uppercase; font-size: 0.7rem; letter-spacing: 1px;
+            transition: all 0.2s;
+        }
+        .portal-btn:hover, .portal-btn.active {
+            color: var(--neon-accent); border-color: var(--neon-accent);
+            box-shadow: 0 0 8px rgba(0, 255, 204, 0.2);
         }
 
-        /* --- INFO TECNICHE --- */
-        .tech-footer {
-            margin-top: 40px;
-            font-size: 0.7rem;
-            color: var(--text-dim);
-            display: flex;
-            gap: 20px;
+        /* Mappa */
+        #map-wrapper { position: relative; width: 100%; height: 100%; overflow: hidden; }
+        
+        .sphere { fill: var(--map-ocean); }
+        
+        /* Stile Province/Regioni */
+        .land { 
+            fill: var(--map-land); 
+            stroke: var(--map-border); 
+            stroke-width: 0.05px; /* Molto sottile per non coprire tutto */
+            cursor: pointer; transition: fill 0.1s;
+        }
+        .land:hover { fill: var(--neon-accent); fill-opacity: 0.4; }
+
+        .night { fill: var(--map-night); pointer-events: none; }
+        .graticule { fill: none; stroke: rgba(255,255,255,0.05); stroke-width: 0.5px; }
+
+        .map-tooltip {
+            position: absolute; background: rgba(0,0,0,0.9);
+            border: 1px solid var(--neon-accent); color: var(--neon-accent);
+            padding: 5px 10px; font-size: 0.8rem; pointer-events: none;
+            display: none; z-index: 10;
         }
 
-        .status-dot {
-            height: 8px; width: 8px;
-            background-color: var(--neon-accent);
-            border-radius: 50%;
-            display: inline-block;
-            margin-right: 5px;
-            animation: pulse 2s infinite;
+        .loading-msg {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            color: var(--neon-accent); font-size: 1.2rem; pointer-events: none;
         }
 
-        @keyframes pulse {
-            0% { opacity: 0.4; }
-            50% { opacity: 1; }
-            100% { opacity: 0.4; }
-        }
-
-        /* Responsive */
-        @media (max-width: 600px) {
-            .main-clock { font-size: 3rem; }
-            .milliseconds { font-size: 1.5rem; }
-            .meta-data-grid { grid-template-columns: 1fr; }
+        @media (max-width: 800px) {
+            .hud-header { flex-direction: column; gap: 15px; align-items: flex-start; }
+            .main-clock { font-size: 2.5rem; }
         }
     </style>
 </head>
 <body>
 
-    <div id="bg-layer" style="background-image: url('https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop');"></div>
+    <div id="bg-layer" style="background-image: url('https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920');"></div>
 
-    <div class="container">
-        
-        <div class="portal-selector">
-            <button class="portal-btn active" onclick="switchPortal('Europe/Rome', 'Roma', 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80&w=1920&auto=format&fit=crop')">ROMA</button>
-            <button class="portal-btn" onclick="switchPortal('America/New_York', 'New York', 'https://images.unsplash.com/photo-1496442226666-8d4a0e62e6e9?q=80&w=1920&auto=format&fit=crop')">NEW YORK</button>
-            <button class="portal-btn" onclick="switchPortal('Asia/Tokyo', 'Tokyo', 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80&w=1920&auto=format&fit=crop')">TOKYO</button>
-            <button class="portal-btn" onclick="switchPortal('Europe/London', 'Londra', 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?q=80&w=1920&auto=format&fit=crop')">LONDRA</button>
-            <button class="portal-btn" onclick="switchPortal('utc', 'Universale (UTC)', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=1920&auto=format&fit=crop')">ORBITA (UTC)</button>
-        </div>
+    <div id="app-container">
+        <header class="hud-header">
+            <div class="main-clock-container">
+                <div class="main-clock">
+                    <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.000</span>
+                </div>
+                <div class="meta-info">
+                    <span id="full-date">---</span> | 
+                    <span id="human-era" style="color: var(--neon-accent)">--- HE</span> |
+                    <span id="century">---</span>
+                </div>
+            </div>
+            <div class="portal-selector">
+                <button class="portal-btn active" onclick="switchPortal('Europe/Rome', 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?q=80')">ROMA</button>
+                <button class="portal-btn" onclick="switchPortal('America/New_York', 'https://images.unsplash.com/photo-1496442226666-8d4a0e62e6e9?q=80')">NYC</button>
+                <button class="portal-btn" onclick="switchPortal('Asia/Tokyo', 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?q=80')">TOKYO</button>
+                <button class="portal-btn" onclick="switchPortal('utc', 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80')">ORBITA</button>
+            </div>
+        </header>
 
-        <div class="main-clock">
-            <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.000</span>
-        </div>
-
-        <div class="meta-data-grid">
-            <div class="data-item">
-                <span class="label">Coordinate Temporali</span>
-                <span class="value" id="full-date">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Ciclo Settimanale</span>
-                <span class="value">Settimana <span id="week-num">--</span> / Giorno <span id="day-year">--</span></span>
-            </div>
-            <div class="data-item">
-                <span class="label">Status Solare (DST)</span>
-                <span class="value" id="dst-status">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Era Umana (Olocene)</span>
-                <span class="value value-large" id="human-era">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Secolo Corrente</span>
-                <span class="value" id="century">---</span>
-            </div>
-            <div class="data-item">
-                <span class="label">Offset UTC</span>
-                <span class="value" id="utc-offset">---</span>
-            </div>
-        </div>
-
-        <div class="tech-footer">
-            <span><span class="status-dot"></span>SYNC: ATOMIC</span>
-            <span id="timezone-debug">Zone: Europe/Rome</span>
+        <div id="map-wrapper">
+            <div class="loading-msg" id="loading">CARICAMENTO GEODATI AD ALTA RISOLUZIONE...</div>
+            <div id="map-tooltip" class="map-tooltip"></div>
         </div>
     </div>
 
     <script>
-        // Setup Variabili
         const DateTime = luxon.DateTime;
         let currentZone = "Europe/Rome";
         
-        // Funzione per cambiare portale (Città)
-        function switchPortal(zone, cityName, bgUrl) {
-            currentZone = zone;
-            
-            // Aggiorna sfondo
-            document.getElementById('bg-layer').style.backgroundImage = `url('${bgUrl}')`;
-            
-            // Aggiorna label debug
-            document.getElementById('timezone-debug').innerText = `Zone: ${zone}`;
+        // Setup Mappa
+        const mapContainer = document.getElementById("map-wrapper");
+        const width = mapContainer.clientWidth;
+        const height = mapContainer.clientHeight;
+        const svg = d3.select("#map-wrapper").append("svg").attr("width", "100%").attr("height", "100%").attr("viewBox", [0, 0, width, height]);
 
-            // Gestione classi bottoni
-            document.querySelectorAll('.portal-btn').forEach(btn => btn.classList.remove('active'));
+        // Proiezione Equal Earth
+        const projection = d3.geoEqualEarth().scale(width / 5.5).translate([width / 2, height / 2]);
+        const path = d3.geoPath(projection);
+
+        // Gruppi SVG
+        const gSphere = svg.append("g");
+        const gGraticule = svg.append("g");
+        const gLand = svg.append("g");
+        const gNight = svg.append("g");
+
+        // Zoom
+        const zoom = d3.zoom().scaleExtent([1, 20]).on("zoom", (event) => {
+            const t = event.transform;
+            gSphere.attr("transform", t);
+            gGraticule.attr("transform", t);
+            gLand.attr("transform", t);
+            gNight.attr("transform", t);
+            // I bordi diventano più sottili quando zoomi per vedere i dettagli
+            gLand.selectAll("path").style("stroke-width", (0.1 / t.k) + "px");
+        });
+        svg.call(zoom);
+
+        // Disegno Base
+        gSphere.append("path").datum({type: "Sphere"}).attr("class", "sphere").attr("d", path);
+        gGraticule.append("path").datum(d3.geoGraticule()).attr("class", "graticule").attr("d", path);
+
+        // --- CARICAMENTO FILE LOCALE ---
+        // Questo cerca il file nella stessa cartella dell'HTML
+        d3.json("./world-admin1.json").then(data => {
+            document.getElementById("loading").style.display = "none";
+            
+            // Tenta di trovare l'oggetto corretto dentro il TopoJSON.
+            // Mapshaper solitamente usa il nome del file o 'ne_10m_admin_1_states_provinces'
+            let geoFeatures;
+            const objects = data.objects;
+            
+            // Cerchiamo la chiave che contiene le geometrie (non sappiamo come l'ha rinominata mapshaper)
+            const keys = Object.keys(objects);
+            if (keys.length > 0) {
+                geoFeatures = topojson.feature(data, objects[keys[0]]).features;
+            } else {
+                console.error("Struttura TopoJSON non valida.");
+                return;
+            }
+
+            gLand.selectAll("path")
+                .data(geoFeatures)
+                .enter().append("path")
+                .attr("class", "land")
+                .attr("d", path)
+                .on("mouseover", function(event, d) {
+                    // Tooltip con Nome Regione + Nome Paese (se disponibile nei dati)
+                    const regionName = d.properties.name || d.properties.NAME;
+                    const adminName = d.properties.admin || d.properties.ADMIN || ""; 
+                    const label = adminName ? `${regionName}, ${adminName}` : regionName;
+                    
+                    const tooltip = document.getElementById("map-tooltip");
+                    tooltip.style.display = "block";
+                    tooltip.innerText = label;
+                })
+                .on("mousemove", (event) => {
+                    const tooltip = document.getElementById("map-tooltip");
+                    tooltip.style.left = (event.pageX + 15) + "px";
+                    tooltip.style.top = (event.pageY + 15) + "px";
+                })
+                .on("mouseout", () => document.getElementById("map-tooltip").style.display = "none");
+
+            // Avvia ciclo giorno/notte dopo il caricamento
+            updateSolarTerminator();
+
+        }).catch(err => {
+            document.getElementById("loading").innerText = "ERRORE CARICAMENTO MAPPA LOCALE (Vedi Console)";
+            console.error("Errore: Assicurati di usare un server locale (es. VS Code Live Server) per caricare i file JSON locali.", err);
+        });
+
+        // --- CICLO GIORNO/NOTTE ---
+        function getSunPosition(date) {
+            var rad = Math.PI / 180, phi, lambda;
+            var dayOfYear = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 1000 / 60 / 60 / 24);
+            var declination = -23.44 * Math.cos(rad * 360 / 365 * (dayOfYear + 10));
+            var utcHours = date.getUTCHours() + date.getUTCMinutes()/60;
+            lambda = -15 * (utcHours - 12);
+            return [lambda, declination];
+        }
+
+        function updateSolarTerminator() {
+            const now = new Date();
+            const sunPos = getSunPosition(now);
+            const antiSun = [sunPos[0] + 180, -sunPos[1]];
+            const circle = d3.geoCircle().center(antiSun).radius(90);
+            
+            const nightPath = gNight.selectAll("path").data([circle()]);
+            nightPath.enter().append("path")
+                .attr("class", "night")
+                .merge(nightPath)
+                .attr("d", path);
+        }
+
+        // --- OROLOGIO ---
+        function updateClock() {
+            const now = DateTime.now().setZone(currentZone);
+            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
+            document.getElementById('clock-ms').innerText = "." + now.toFormat('SSS');
+            document.getElementById('full-date').innerText = now.setLocale('it').toFormat('cccc, dd MMM yyyy');
+            document.getElementById('human-era').innerText = (now.year + 10000) + " HE";
+            document.getElementById('century').innerText = Math.ceil(now.year / 100) + "° SEC";
+            
+            if (new Date().getMilliseconds() % 20 < 2) updateSolarTerminator(); // Aggiorna ombra occasionalmente
+            requestAnimationFrame(updateClock);
+        }
+
+        window.switchPortal = function(zone, bgUrl) {
+            currentZone = zone;
+            document.getElementById('bg-layer').style.backgroundImage = `url('${bgUrl}')`;
+            document.querySelectorAll('.portal-btn').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
         }
 
-        // Funzione di aggiornamento (Loop principale)
-        function updateTime() {
-            // Ottiene l'ora corrente nel fuso orario selezionato
-            const now = DateTime.now().setZone(currentZone);
-
-            // 1. OROLOGIO PRINCIPALE
-            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
-            // Millisecondi formattati a 3 cifre
-            document.getElementById('clock-ms').innerText = "." + now.toFormat('SSS');
-
-            // 2. DATA ESTESA
-            // Es: Lunedì, 24 Ottobre 2024
-            document.getElementById('full-date').innerText = now.setLocale('it').toFormat('cccc, dd MMMM yyyy');
-
-            // 3. CICLI (Settimana e Giorno anno)
-            document.getElementById('week-num').innerText = now.weekNumber;
-            document.getElementById('day-year').innerText = now.ordinal; // Giorno da 1 a 365/366
-
-            // 4. DST (Ora Legale)
-            // Luxon ci dice se l'ora legale è attiva in quel luogo ORA
-            const isDST = now.isInDST; 
-            const offsetName = now.offsetNameShort; // Es: CET o CEST
-            document.getElementById('dst-status').innerText = isDST ? `ATTIVA (${offsetName})` : `NON ATTIVA (${offsetName})`;
-            document.getElementById('dst-status').style.color = isDST ? '#00ffcc' : '#aaaaaa';
-
-            // 5. ERA UMANA (Calendario Olocene)
-            // Aggiungiamo 10.000 anni all'anno corrente
-            const humanYear = now.year + 10000;
-            document.getElementById('human-era').innerText = `${humanYear} HE`;
-
-            // 6. SECOLO
-            const century = Math.ceil(now.year / 100);
-            document.getElementById('century').innerText = `${century}°`;
-
-            // 7. OFFSET
-            document.getElementById('utc-offset').innerText = now.toFormat('Z');
-
-            // Richiede il prossimo frame (per fluidità millisecondi)
-            requestAnimationFrame(updateTime);
-        }
-
-        // Avvia il loop
-        requestAnimationFrame(updateTime);
-
+        requestAnimationFrame(updateClock);
     </script>
 </body>
 </html>
