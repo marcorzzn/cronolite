@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cronoLite // Time Scanner</title>
+    <title>cronoLite // Political Scanner</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -16,12 +16,12 @@
             background-color: #050505;
             font-family: 'Courier New', Courier, monospace;
             color: #e0e0e0;
-            cursor: none; /* Nascondiamo il cursore standard per usare il nostro scanner */
+            cursor: none; /* Cursore custom */
         }
 
         #app-container {
             display: grid;
-            grid-template-rows: auto 1fr auto; /* Header - Mappa - Footer Dati */
+            grid-template-rows: auto 1fr auto;
             height: 100vh; width: 100vw;
         }
 
@@ -48,54 +48,71 @@
             overflow: hidden;
         }
 
-        /* Colori Mappa */
-        .sphere { fill: #0b1016; }
-        .land { fill: #2a3b4c; stroke: none; } /* Terra scura di base */
-        .land-highlight { fill: #e0f7fa; transition: fill 0.2s; } /* Terra illuminata */
+        /* Elementi SVG */
+        .sphere { fill: #080c10; }
         
-        .night { fill: #000; fill-opacity: 0.75; pointer-events: none; }
+        .land { 
+            fill: #1f2a36; 
+            stroke: #000; 
+            stroke-width: 0.3px; 
+            transition: fill 0.1s; /* Transizione rapida per effetto scanner */
+        }
+
+        /* Nazione Attiva (sotto il mouse) */
+        .land.hovered { fill: #00ffcc !important; fill-opacity: 0.6; }
+        
+        /* Nazioni "Sorelle" (stesso fuso orario) */
+        .land.same-zone { fill: #00ffcc !important; fill-opacity: 0.2; }
+
+        /* Ombra Notturna */
+        .night { fill: #000; fill-opacity: 0.8; pointer-events: none; }
         .night-blur { filter: url(#twilight-filter); }
 
-        /* Linee Fusi Orari */
-        .timezone-line {
-            fill: none;
-            stroke: #00ffcc;
-            stroke-width: 0.3px;
-            stroke-opacity: 0.1; /* Molto tenue di default */
-        }
-        
-        /* Spicchio attivo */
-        .timezone-active {
-            fill: #00ffcc;
-            fill-opacity: 0.1; /* Evidenzia la fascia oraria */
-            stroke: #00ffcc;
-            stroke-opacity: 0.8;
-            stroke-width: 1px;
+        /* Meridiani/Paralleli essenziali */
+        .graticule { 
+            fill: none; 
+            stroke: #00ffcc; 
+            stroke-width: 0.2px; 
+            stroke-opacity: 0.15; 
+            stroke-dasharray: 2,4; 
         }
 
-        /* Cursori Scanner */
+        /* --- UI SCANNER --- */
         .scanner-line {
             position: absolute;
             background: #00ffcc;
-            opacity: 0.7;
+            opacity: 0.8;
             pointer-events: none;
-            box-shadow: 0 0 8px #00ffcc;
+            box-shadow: 0 0 10px #00ffcc;
+            z-index: 5;
         }
-        #scanner-x { height: 100%; width: 1px; top: 0; left: 50%; } /* Verticale */
-        #scanner-y { width: 100%; height: 1px; top: 50%; left: 0; } /* Orizzontale */
+        #scanner-x { height: 100%; width: 1px; top: 0; left: 50%; } 
+        #scanner-y { width: 100%; height: 1px; top: 50%; left: 0; }
+        
+        /* Etichetta che segue il mouse */
+        #scanner-label {
+            position: absolute;
+            color: #00ffcc;
+            background: rgba(0,0,0,0.8);
+            border: 1px solid #00ffcc;
+            padding: 4px 8px;
+            font-size: 0.7rem;
+            pointer-events: none;
+            white-space: nowrap;
+            transform: translate(10px, -30px);
+            display: none;
+            z-index: 6;
+        }
 
-        /* --- FOOTER DATI --- */
+        /* --- FOOTER --- */
         .hud-footer {
             padding: 15px 30px;
-            background: rgba(0,0,0,0.9);
+            background: rgba(0,0,0,0.95);
             border-top: 1px solid #333;
             display: flex; justify-content: space-between; align-items: center;
             font-size: 0.9rem;
             color: #777;
         }
-
-        .data-block { display: flex; flex-direction: column; }
-        .data-label { font-size: 0.6rem; letter-spacing: 2px; margin-bottom: 3px; }
         .data-val { color: #fff; font-weight: bold; font-size: 1.2rem; }
         .data-accent { color: #00ffcc; }
 
@@ -106,7 +123,7 @@
     <svg style="height:0; position:absolute;">
         <defs>
             <filter id="twilight-filter" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="6" />
             </filter>
         </defs>
     </svg>
@@ -118,24 +135,25 @@
                 <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.00</span>
             </div>
             <div style="text-align:right">
-                <div style="font-size:0.7rem; color:#00ffcc">CRONO//LITE</div>
-                <div style="font-size:0.6rem; color:#555">SCANNER MODE: ACTIVE</div>
+                <div style="font-size:0.7rem; color:#00ffcc">POLITICAL SCANNER</div>
+                <div style="font-size:0.6rem; color:#555">SYNC: ACTIVE</div>
             </div>
         </header>
 
         <div id="map-wrapper">
             <div id="scanner-x" class="scanner-line"></div>
             <div id="scanner-y" class="scanner-line"></div>
+            <div id="scanner-label">UTC</div>
         </div>
 
         <footer class="hud-footer">
-            <div class="data-block">
-                <span class="data-label">TIME ZONE OFFSET</span>
-                <span class="data-val data-accent" id="offset-display">UTC +0</span>
+            <div style="display:flex; flex-direction:column;">
+                <span style="font-size:0.6rem; letter-spacing:2px;">OFFSET CORRENTE</span>
+                <span class="data-val data-accent" id="offset-display">SCANNING...</span>
             </div>
-            <div class="data-block" style="align-items: flex-end;">
-                <span class="data-label">COORDINATE</span>
-                <span class="data-val" id="coords-display">0°, 0°</span>
+            <div style="display:flex; flex-direction:column; align-items:flex-end;">
+                <span style="font-size:0.6rem; letter-spacing:2px;">TIME IN ZONE</span>
+                <span class="data-val" id="zone-time-display">--:--</span>
             </div>
         </footer>
     </div>
@@ -148,145 +166,177 @@
         const width = mapContainer.clientWidth;
         const height = mapContainer.clientHeight;
         
-        // SVG
         const svg = d3.select("#map-wrapper").append("svg")
             .attr("width", width)
-            .attr("height", height); // Niente ViewBox per evitare scaling strano, pixel 1:1
+            .attr("height", height);
 
-        // Proiezione Equal Earth (Fissa e Centrata)
+        // Proiezione Equal Earth
         const projection = d3.geoEqualEarth()
-            .scale(width / 5.5) // Scala adatta a schermi desktop
+            .scale(width / 5.5)
             .translate([width / 2, height / 2]);
 
         const path = d3.geoPath(projection);
 
-        // --- LIVELLI ---
+        // Layers
         const gSphere = svg.append("g");
-        const gTimeZones = svg.append("g"); // Layer fusi orari (sotto la terra)
         const gLand = svg.append("g");
+        const gGraticule = svg.append("g");
         const gNight = svg.append("g");
 
-        // 1. Sfera Base
-        gSphere.append("path")
-            .datum({type: "Sphere"})
-            .attr("class", "sphere")
-            .attr("d", path);
+        gSphere.append("path").datum({type: "Sphere"}).attr("class", "sphere").attr("d", path);
 
-        // 2. Griglia Fusi Orari (Geometrica: ogni 15 gradi)
-        // Creiamo 24 spicchi per rappresentare le ore
-        const zones = d3.range(-180, 180, 15).map(lon => {
-            return {
-                type: "Polygon",
-                coordinates: [[
-                    [lon, -90], [lon + 15, -90], 
-                    [lon + 15, 90], [lon, 90], 
-                    [lon, -90]
-                ]],
-                offset: Math.round(lon / 15) // Offset approssimato
-            };
-        });
+        // Griglia semplificata (solo paralleli principali e meridiani)
+        const graticule = d3.geoGraticule().step([30, 30]);
+        gGraticule.append("path").datum(graticule).attr("class", "graticule").attr("d", path);
 
-        // Disegniamo i fusi orari invisibili (o quasi) per l'interazione
-        const zonePaths = gTimeZones.selectAll("path")
-            .data(zones)
-            .enter().append("path")
-            .attr("class", "timezone-line") // Default style
-            .attr("d", path);
+        // --- MATRICE CORREZIONI POLITICHE (Manual Override) ---
+        // L'ISO 3166-1 numeric code è usato dai file topojson standard.
+        // Qui mappiamo ID Nazione -> Offset UTC reale (approssimato per le principali)
+        // Nota: Per paesi enormi come USA/Russia, questo mappa tutto il paese su un unico offset (es. Washington/Mosca)
+        // per mantenere l'effetto "scanner nazione". Dividere USA richiederebbe un file Admin-1 (che lagga).
+        const politicalOffsets = {
+            156: 8,  // Cina (Tutta UTC+8)
+            356: 5.5,// India (UTC+5:30)
+            724: 1,  // Spagna (UTC+1 invece di 0)
+            250: 1,  // Francia (UTC+1 invece di 0)
+            380: 1,  // Italia
+            276: 1,  // Germania
+            826: 0,  // UK
+            840: -5, // USA (Default su East Coast per visualizzazione macro)
+            643: 3,  // Russia (Default Mosca)
+            32: -3,  // Argentina
+            76: -3,  // Brasile (San Paolo)
+            36: 10,  // Australia (Sydney)
+            392: 9,  // Giappone
+        };
 
-        // --- DATI GEOGRAFICI VELOCI ---
+        // Cache per gli offset calcolati
+        let countryData = []; 
+
+        // --- CARICAMENTO DATI ---
         d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(data => {
-            const countries = topojson.feature(data, data.objects.countries);
+            const countries = topojson.feature(data, data.objects.countries).features;
             
-            // Terra
+            // Pre-calcolo Offset per ogni nazione
+            countries.forEach(d => {
+                // 1. Calcola centroide geometrico
+                const centroid = d3.geoCentroid(d);
+                const lon = centroid[0];
+                
+                // 2. Offset geometrico base (Lon / 15)
+                let offset = Math.round(lon / 15);
+
+                // 3. Applica correzione politica se esiste
+                if (politicalOffsets[d.id]) {
+                    offset = politicalOffsets[d.id];
+                }
+
+                // Salviamo l'offset dentro l'oggetto dati
+                d.properties.utcOffset = offset;
+            });
+
+            countryData = countries; // Salva in variabile globale per accesso rapido
+
+            // Disegna Nazioni
             gLand.selectAll("path")
-                .data(countries.features)
+                .data(countries)
                 .enter().append("path")
-                .attr("class", "land land-highlight") // Colore chiaro
+                .attr("class", "land")
                 .attr("d", path);
 
-            // Avvia loop
             updateSolarTerminator();
             requestAnimationFrame(updateLoop);
         });
 
+        // --- GESTIONE SCANNER E INTERAZIONE ---
+        const scannerX = document.getElementById("scanner-x");
+        const scannerY = document.getElementById("scanner-y");
+        const scannerLabel = document.getElementById("scanner-label");
+        const offsetDisplay = document.getElementById("offset-display");
+        const timeDisplay = document.getElementById("zone-time-display");
 
-        // --- LOGICA SCANNER (MOUSE) ---
         mapContainer.addEventListener("mousemove", (e) => {
             const rect = mapContainer.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // 1. Muovi le linee dello scanner
-            document.getElementById("scanner-x").style.left = x + "px";
-            document.getElementById("scanner-y").style.top = y + "px";
+            // 1. Muovi Scanner
+            scannerX.style.left = x + "px";
+            scannerY.style.top = y + "px";
+            scannerLabel.style.left = x + "px";
+            scannerLabel.style.top = y + "px";
+            scannerLabel.style.display = "block";
 
-            // 2. Calcola coordinate geografiche (inversione proiezione)
+            // 2. Logica di Rilevamento
+            // D3 invert trova Lat/Lon dal mouse
             const coords = projection.invert([x, y]);
+            if (!coords) return; // Fuori mappa
+            const [lon, lat] = coords;
+
+            // Variabile per l'offset rilevato
+            let detectedOffset = null;
+            let hoveredCountryId = null;
+
+            // A. Cerchiamo se il mouse è SOPRA una nazione (Politico)
+            // (Iterare su tutti i path è pesante, usiamo una tecnica più leggera o accettiamo l'iterazione su 180 elementi che è veloce)
+            // Usiamo d3-polygon o pointInPolygon? Per semplicità in file unico, calcoliamo la distanza dal centroide (approssimazione)
+            // o meglio: lasciamo che sia il "mouse over" dell'SVG a dircelo?
+            // Sì, usiamo l'evento "mouseover" diretto sugli elementi SVG per sapere la nazione.
+            // Ma qui siamo nel "mousemove" del container. 
             
-            if (coords) {
-                const lon = coords[0];
-                const lat = coords[1];
+            // Per reattività massima, usiamo la logica Geometrica come base, e la sovrascriviamo se siamo su un SVG path.
+            // La gestione "hovered" è fatta via CSS/JS events sotto.
+            
+            // Qui calcoliamo l'offset geometrico di base (Ocean fallback)
+            let geoOffset = Math.round(lon / 15);
+            detectedOffset = geoOffset;
 
-                // Aggiorna Display Coordinate
-                document.getElementById("coords-display").innerText = 
-                    `${Math.abs(lat).toFixed(1)}°${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(1)}°${lon>0?'E':'W'}`;
-
-                // 3. Calcola Offset Orario (Approssimato geometricamente: Lon / 15)
-                // Nota: I fusi reali sono politici, ma quelli geometrici sono perfetti per la visualizzazione "Scanner"
-                let offset = Math.round(lon / 15);
-                const offsetStr = offset >= 0 ? `UTC +${offset}` : `UTC ${offset}`;
-                
-                const timeInZone = DateTime.now().toUTC().plus({ hours: offset }).toFormat("HH:mm");
-                document.getElementById("offset-display").innerHTML = `${offsetStr} <span style="font-size:0.8rem; color:#777">(${timeInZone})</span>`;
-
-                // 4. Evidenzia lo spicchio (Fuso Orario) corrente
-                // Rimuovi classe active da tutti
-                zonePaths.attr("class", "timezone-line");
-                
-                // Trova quale spicchio contiene la longitudine corrente
-                zonePaths.filter(d => lon >= d.coordinates[0][0][0] && lon < d.coordinates[0][1][0])
-                         .attr("class", "timezone-active");
+            // Se stiamo "hoverando" una nazione specifica (gestito da event listeners sotto), usiamo quello.
+            if (activeCountryOffset !== null) {
+                detectedOffset = activeCountryOffset;
             }
+
+            // 3. Applica Visualizzazione
+            updateHighlighting(detectedOffset, hoveredCountryId);
+            updateInfoDisplay(detectedOffset);
         });
 
+        // Variabile globale per comunicare tra SVG hover e Scanner
+        let activeCountryOffset = null;
 
-        // --- LOGICA SOLARE E OROLOGIO ---
-        let lastSunUpdate = 0;
+        // Aggiungiamo Listener agli elementi SVG (solo quando caricati)
+        // Questo deve essere fatto DOPO il caricamento JSON, ma D3 lo gestisce con .on() dinamico se usiamo selectAll
+        // Ma nel codice sopra abbiamo creato i path staticamente. Aggiungiamo logica lì.
+        
+        // --- FUNZIONE DI HIGHLIGHT ---
+        function updateHighlighting(targetOffset) {
+            // Seleziona tutte le nazioni
+            const allLands = gLand.selectAll("path");
 
-        function getSunPosition(date) {
-            const rad = Math.PI / 180;
-            const day = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
-            const declination = -23.44 * Math.cos(rad * 360 / 365 * (day + 10));
-            const utcHours = date.getUTCHours() + date.getUTCMinutes()/60;
-            const lambda = -15 * (utcHours - 12);
-            return [lambda, declination];
-        }
+            // Rimuovi classi
+            allLands.classed("same-zone", false);
+            allLands.classed("hovered", false);
 
-        function updateSolarTerminator(date = new Date()) {
-            const sunPos = getSunPosition(date);
-            const antiSun = [sunPos[0] + 180, -sunPos[1]];
-            const circle = d3.geoCircle().center(antiSun).radius(90)();
-
-            const nightPath = gNight.selectAll("path").data([circle]);
-            nightPath.enter().append("path")
-                .attr("class", "night night-blur")
-                .merge(nightPath)
-                .attr("d", path);
-        }
-
-        function updateLoop() {
-            const now = DateTime.now();
+            // Filtra e colora
+            allLands.filter(d => d.properties.utcOffset === targetOffset)
+                    .classed("same-zone", true);
             
-            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
-            document.getElementById('clock-ms').innerText = "." + now.toFormat('SS');
-
-            if (new Date().getTime() - lastSunUpdate > 1000) { // Aggiorna ombra ogni secondo
-                updateSolarTerminator();
-                lastSunUpdate = new Date().getTime();
-            }
-            requestAnimationFrame(updateLoop);
+            // Nota: La classe .hovered specifica per la singola nazione sotto il mouse 
+            // la gestiamo con CSS :hover nativo o D3 events per massima velocità.
         }
 
-    </script>
-</body>
-</html>
+        function updateInfoDisplay(offset) {
+            const sign = offset >= 0 ? "+" : "";
+            const text = `UTC ${sign}${offset}`;
+            
+            offsetDisplay.innerText = text;
+            offsetDisplay.style.color = (activeCountryOffset !== null) ? "#00ffcc" : "#555"; // Ciano se politico, Grigio se oceano
+            
+            scannerLabel.innerText = text;
+
+            // Calcola ora locale
+            const timeInZone = DateTime.now().toUTC().plus({ hours: offset }).toFormat("HH:mm");
+            timeDisplay.innerText = timeInZone;
+        }
+
+        //
