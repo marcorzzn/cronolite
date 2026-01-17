@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cronoLite // TZ Database Core</title>
+    <title>cronoLite // Final Scanner</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -14,102 +14,89 @@
         :root {
             --bg-deep: #020408;
             --neon-cyan: #00ffcc;
-            --neon-green: #0aff60; /* Verde richiesto */
+            --neon-green: #0aff60; 
             --text-white: #ffffff;
-            --text-dim: #666;
+            --text-dim: #555;
             --panel-bg: #000000;
-            --border-color: #1a1a1a;
         }
 
         body, html {
             margin: 0; padding: 0; height: 100%; overflow: hidden;
             background-color: var(--bg-deep);
-            font-family: 'Courier New', Courier, monospace;
+            font-family: 'Courier New', Courier, monospace; /* Font unificato */
             color: var(--text-white);
             cursor: crosshair;
         }
 
         #app-container {
             display: grid;
-            grid-template-rows: auto 1fr auto; /* Header - Mappa - Footer */
+            grid-template-rows: auto 1fr auto; 
             height: 100vh; width: 100vw;
         }
 
-        /* --- 1. TOP BAR: DEEP TIME SCALE --- */
-        .deep-time-bar {
+        /* --- 1. TOP BAR: SINGLE LINE TICKER --- */
+        .top-ticker {
             background: var(--panel-bg);
             border-bottom: 1px solid var(--neon-green);
-            display: flex; flex-direction: column;
-            padding: 8px 0;
+            height: 45px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            white-space: nowrap;
+            overflow: hidden; /* Taglia se troppo lungo, o usa overflow-x: auto per scorrere */
             z-index: 20;
             box-shadow: 0 5px 20px rgba(0, 255, 100, 0.05);
         }
 
-        /* Riga Superiore: Scala Geologica */
-        .geo-scale-row {
-            display: flex; justify-content: space-around;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 6px; margin-bottom: 6px;
+        .metric-group {
+            display: flex;
+            align-items: baseline;
+            margin-right: 30px; /* Spazio tra i blocchi di dati */
         }
+
+        .t-label {
+            font-size: 0.65rem;
+            color: var(--text-dim);
+            margin-right: 6px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: normal;
+        }
+
+        .t-val {
+            font-size: 1rem;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+        }
+
+        /* Alternanza Colori */
+        .color-A { color: var(--text-white); }
+        .color-B { color: var(--neon-green); }
         
-        .geo-item { display: flex; flex-direction: column; align-items: flex-start; }
-        .geo-label { 
-            font-size: 0.55rem; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px;
-        }
-        .geo-val { font-size: 0.85rem; font-weight: bold; letter-spacing: 0.5px; }
-        
-        /* Alternanza Colori (Bianco / Verde) */
-        .geo-item:nth-child(odd) .geo-val { color: var(--text-white); }
-        .geo-item:nth-child(even) .geo-val { color: var(--neon-green); }
+        /* Orologio High-Vis */
+        .clock-main { font-size: 1.3rem; margin-right: 5px; }
+        .clock-nano { font-size: 0.8rem; opacity: 0.8; letter-spacing: 1px; }
 
-        /* Riga Inferiore: Data Umana e Clock */
-        .human-time-row {
-            display: flex; justify-content: space-between; align-items: center;
-            padding: 0 20px;
-        }
 
-        .h-group { display: flex; gap: 20px; align-items: baseline; }
-        .h-label { font-size: 0.6rem; color: var(--text-dim); margin-right: 4px; }
-        .h-val { font-size: 1rem; font-weight: bold; color: var(--text-white); }
-        .h-val.accent { color: var(--neon-cyan); }
-
-        /* Orologio Principale */
-        .master-clock {
-            font-size: 1.8rem; font-weight: bold; color: var(--text-white);
-            text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
-            font-variant-numeric: tabular-nums;
-        }
-        .nano-metrics {
-            font-family: monospace; font-size: 0.8rem; color: var(--neon-green);
-            opacity: 0.8; letter-spacing: 1px; margin-left: 10px;
-        }
-        .faint { opacity: 0.4; }
-
-        /* --- 2. MAPPA: TZ DATABASE VISUALIZER --- */
+        /* --- 2. MAPPA --- */
         #map-wrapper { 
             position: relative; width: 100%; height: 100%; 
             background: radial-gradient(circle at center, #0e151d 0%, #000 90%);
             overflow: hidden;
         }
 
-        /* Ocean Bands (Geometriche) */
         .ocean-band { fill: none; stroke: #ffffff; stroke-opacity: 0.03; stroke-width: 0.5px; }
 
-        /* Nazioni */
         .land { 
             stroke: #000; stroke-width: 0.1px; 
             transition: fill 0.2s, stroke 0.2s;
         }
-        /* Colori dinamici assegnati via JS in base all'offset */
+        .land.hovered { stroke: var(--neon-green); stroke-width: 1px; filter: brightness(1.4); }
 
-        .land.hovered { stroke: var(--neon-cyan); stroke-width: 0.8px; filter: brightness(1.3); }
-        .land.active-zone { filter: brightness(1.2); }
-
-        /* Terminatore Notte */
         .night { fill: #000; fill-opacity: 0.75; pointer-events: none; }
         .night-blur { filter: url(#twilight-filter); }
 
-        /* Scanner */
+        /* Scanner Lines */
         .scanner-line {
             position: absolute; background: var(--neon-green); opacity: 0.4; pointer-events: none;
             z-index: 10;
@@ -118,25 +105,24 @@
         #scanner-y { width: 100%; height: 1px; top: 50%; left: 0; }
         
         #scanner-tag {
-            position: absolute; background: rgba(0,0,0,0.8); border: 1px solid var(--neon-green);
+            position: absolute; background: rgba(0,0,0,0.9); border: 1px solid var(--neon-green);
             color: var(--neon-green); padding: 2px 6px; font-size: 0.7rem; pointer-events: none;
-            display: none; z-index: 15; transform: translate(10px, -25px);
+            display: none; z-index: 15; transform: translate(10px, -30px);
         }
 
-        /* --- 3. BOTTOM BAR: INFO --- */
+        /* --- 3. BOTTOM BAR --- */
         .hud-footer {
             background: var(--panel-bg);
-            border-top: 1px solid var(--neon-cyan);
+            border-top: 1px solid var(--neon-green); /* Verde coerente */
             padding: 10px 30px;
             display: flex; justify-content: space-between; align-items: center;
-            height: 65px; /* Altezza fissa per evitare troncamenti */
+            height: 60px;
             z-index: 20;
         }
 
-        .data-block { display: flex; flex-direction: column; justify-content: center; }
-        .d-head { font-size: 0.6rem; color: var(--neon-cyan); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
-        .d-main { font-size: 1.1rem; color: #fff; font-weight: bold; white-space: nowrap; }
-        .d-sub { font-size: 0.75rem; color: #888; margin-top: 2px; }
+        .d-head { font-size: 0.6rem; color: var(--neon-green); letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+        .d-main { font-size: 1.2rem; color: #fff; font-weight: bold; white-space: nowrap; }
+        .d-sub { font-size: 0.75rem; color: #777; }
 
     </style>
 </head>
@@ -152,47 +138,50 @@
 
     <div id="app-container">
         
-        <header class="deep-time-bar">
-            <div class="geo-scale-row">
-                <div class="geo-item">
-                    <span class="geo-label">EONOTHEM / EON</span>
-                    <span class="geo-val">PHANEROZOIC</span>
-                </div>
-                <div class="geo-item">
-                    <span class="geo-label">ERATHEM / ERA</span>
-                    <span class="geo-val">CENOZOIC</span>
-                </div>
-                <div class="geo-item">
-                    <span class="geo-label">SYSTEM / PERIOD</span>
-                    <span class="geo-val">QUATERNARY</span>
-                </div>
-                <div class="geo-item">
-                    <span class="geo-label">SERIES / EPOCH</span>
-                    <span class="geo-val">HOLOCENE</span>
-                </div>
-                <div class="geo-item">
-                    <span class="geo-label">STAGE / AGE</span>
-                    <span class="geo-val">MEGHALAYAN</span>
-                </div>
+        <header class="top-ticker">
+            <div class="metric-group">
+                <span class="t-label">EON</span>
+                <span class="t-val color-A">PHANEROZOIC</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">ERA</span>
+                <span class="t-val color-B">CENOZOIC</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">SYS</span>
+                <span class="t-val color-A">QUATERNARY</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">SER</span>
+                <span class="t-val color-B">HOLOCENE</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">STG</span>
+                <span class="t-val color-A">MEGHALAYAN</span>
             </div>
 
-            <div class="human-time-row">
-                <div class="h-group">
-                    <div><span class="h-label">ERA UMANA</span><span class="h-val accent" id="val-era">--</span></div>
-                    <div><span class="h-label">ANNO</span><span class="h-val" id="val-year">--</span></div>
-                    <div><span class="h-label">SETT</span><span class="h-val" id="val-week">--</span></div>
-                    <div><span class="h-label">GIORNO</span><span class="h-val" id="val-day">--</span></div>
-                </div>
-                
-                <div style="display:flex; align-items:baseline;">
-                    <span class="master-clock" id="val-hms">00:00:00</span>
-                    <span class="nano-metrics">
-                        <span id="val-ms">.000</span> <span id="val-micro" class="faint">000</span> <span id="val-nano" class="faint" style="opacity:0.3">000</span>
-                    </span>
-                </div>
+            <div class="metric-group" style="opacity: 0.3; margin-right: 30px;">|</div>
+
+            <div class="metric-group">
+                <span class="t-label">YEAR</span>
+                <span class="t-val color-B" id="v-year">--</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">WEEK</span>
+                <span class="t-val color-A" id="v-week">--</span>
+            </div>
+            <div class="metric-group">
+                <span class="t-label">DAY</span>
+                <span class="t-val color-B" id="v-day">--</span>
+            </div>
+
+            <div class="metric-group" style="margin-left: auto; margin-right: 0;">
+                <span class="t-val color-A clock-main" id="v-hms">00:00:00</span>
+                <span class="t-val color-B clock-nano">
+                    <span id="v-ms">.000</span> <span id="v-micro" style="opacity:0.6">000</span> <span id="v-nano" style="opacity:0.3">000</span>
+                </span>
             </div>
         </header>
-
 
         <div id="map-wrapper">
             <div id="scanner-x" class="scanner-line"></div>
@@ -200,152 +189,120 @@
             <div id="scanner-tag">UTC</div>
         </div>
 
-
         <footer class="hud-footer">
-            <div class="data-block">
-                <span class="d-head">TARGET REGION</span>
+            <div style="display:flex; flex-direction:column;">
+                <span class="d-head">TARGET SECTOR</span>
                 <span class="d-main" id="inf-name">SYSTEM READY</span>
-                <span class="d-sub" id="inf-id">WAITING INPUT...</span>
+                <span class="d-sub" id="inf-id">HOVER MAP TO IDENTIFY</span>
             </div>
 
-            <div class="data-block" style="text-align: right; align-items: flex-end;">
-                <span class="d-head">TZ DATABASE OFFSET</span>
+            <div style="display:flex; flex-direction:column; align-items: flex-end; text-align: right;">
+                <span class="d-head">LOCAL TIME & OFFSET</span>
                 <span class="d-main" id="inf-offset">UTC --</span>
-                <span class="d-sub" id="inf-coords">00.00° N, 00.00° W</span>
+                <span class="d-sub" id="inf-coords">00.0° N, 00.0° W</span>
             </div>
         </footer>
-
     </div>
 
     <script>
         const DateTime = luxon.DateTime;
         
-        // --- CONFIGURAZIONE MAPPA ---
-        const mapContainer = document.getElementById("map-wrapper");
-        const svg = d3.select("#map-wrapper").append("svg")
-            .attr("width", "100%")
-            .attr("height", "100%");
+        // --- DIZIONARIO NOMI PAESI ---
+        // TopoJSON 110m usa codici numerici (ISO 3166-1 numeric). 
+        // Questo oggetto mappa l'ID al nome da visualizzare.
+        const countryMap = {
+            4:"AFGHANISTAN", 8:"ALBANIA", 12:"ALGERIA", 24:"ANGOLA", 32:"ARGENTINA", 36:"AUSTRALIA", 
+            40:"AUSTRIA", 31:"AZERBAIJAN", 50:"BANGLADESH", 112:"BELARUS", 56:"BELGIUM", 68:"BOLIVIA", 
+            70:"BOSNIA AND HERZ.", 72:"BOTSWANA", 76:"BRAZIL", 100:"BULGARIA", 854:"BURKINA FASO", 
+            108:"BURUNDI", 116:"CAMBODIA", 120:"CAMEROON", 124:"CANADA", 140:"C. AFRICAN REP.", 
+            148:"CHAD", 152:"CHILE", 156:"CHINA", 170:"COLOMBIA", 178:"CONGO", 180:"DR CONGO", 
+            188:"COSTA RICA", 384:"CÔTE D'IVOIRE", 191:"CROATIA", 192:"CUBA", 196:"CYPRUS", 
+            203:"CZECHIA", 208:"DENMARK", 214:"DOMINICAN REP.", 218:"ECUADOR", 818:"EGYPT", 
+            222:"EL SALVADOR", 231:"ETHIOPIA", 246:"FINLAND", 250:"FRANCE", 266:"GABON", 
+            268:"GEORGIA", 276:"GERMANY", 288:"GHANA", 300:"GREECE", 304:"GREENLAND", 320:"GUATEMALA", 
+            324:"GUINEA", 328:"GUYANA", 332:"HAITI", 340:"HONDURAS", 348:"HUNGARY", 352:"ICELAND", 
+            356:"INDIA", 360:"INDONESIA", 364:"IRAN", 368:"IRAQ", 372:"IRELAND", 376:"ISRAEL", 
+            380:"ITALY", 388:"JAMAICA", 392:"JAPAN", 400:"JORDAN", 398:"KAZAKHSTAN", 404:"KENYA", 
+            408:"NORTH KOREA", 410:"SOUTH KOREA", 414:"KUWAIT", 417:"KYRGYZSTAN", 418:"LAOS", 
+            428:"LATVIA", 422:"LEBANON", 426:"LESOTHO", 430:"LIBERIA", 434:"LIBYA", 440:"LITHUANIA", 
+            442:"LUXEMBOURG", 450:"MADAGASCAR", 454:"MALAWI", 458:"MALAYSIA", 466:"MALI", 
+            484:"MEXICO", 498:"MOLDOVA", 496:"MONGOLIA", 499:"MONTENEGRO", 504:"MOROCCO", 
+            508:"MOZAMBIQUE", 104:"MYANMAR", 516:"NAMIBIA", 524:"NEPAL", 528:"NETHERLANDS", 
+            554:"NEW ZEALAND", 558:"NICARAGUA", 562:"NIGER", 566:"NIGERIA", 578:"NORWAY", 
+            512:"OMAN", 586:"PAKISTAN", 591:"PANAMA", 598:"PAPUA NEW GUINEA", 600:"PARAGUAY", 
+            604:"PERU", 608:"PHILIPPINES", 616:"POLAND", 620:"PORTUGAL", 634:"QATAR", 642:"ROMANIA", 
+            643:"RUSSIA", 646:"RWANDA", 682:"SAUDI ARABIA", 686:"SENEGAL", 688:"SERBIA", 
+            694:"SIERRA LEONE", 703:"SLOVAKIA", 705:"SLOVENIA", 90:"SOLOMON IS.", 706:"SOMALIA", 
+            710:"SOUTH AFRICA", 728:"SOUTH SUDAN", 724:"SPAIN", 144:"SRI LANKA", 729:"SUDAN", 
+            740:"SURINAME", 752:"SWEDEN", 756:"SWITZERLAND", 760:"SYRIA", 158:"TAIWAN", 
+            762:"TAJIKISTAN", 834:"TANZANIA", 764:"THAILAND", 626:"TIMOR-LESTE", 768:"TOGO", 
+            780:"TRINIDAD AND TOBAGO", 788:"TUNISIA", 792:"TURKEY", 795:"TURKMENISTAN", 
+            800:"UGANDA", 804:"UKRAINE", 784:"UAE", 826:"UNITED KINGDOM", 840:"UNITED STATES", 
+            858:"URUGUAY", 860:"UZBEKISTAN", 862:"VENEZUELA", 704:"VIETNAM", 732:"W. SAHARA", 
+            887:"YEMEN", 894:"ZAMBIA", 716:"ZIMBABWE"
+        };
 
-        // Proiezione Equal Earth con FitExtent (Risolve i bordi tagliati)
+        const mapContainer = document.getElementById("map-wrapper");
+        const svg = d3.select("#map-wrapper").append("svg").attr("width", "100%").attr("height", "100%");
         const projection = d3.geoEqualEarth();
         const path = d3.geoPath(projection);
 
         function resizeMap() {
             const w = mapContainer.clientWidth;
             const h = mapContainer.clientHeight;
-            // Margine di 20px per sicurezza
             projection.fitExtent([[20, 20], [w - 20, h - 20]], {type: "Sphere"});
             svg.selectAll("path").attr("d", path);
         }
         window.addEventListener("resize", resizeMap);
 
-        // Layers
         const gOcean = svg.append("g");
         const gLand = svg.append("g");
         const gNight = svg.append("g");
 
-        // Genera colori per i fusi orari (Spettro Freddo/Cyber)
-        // Mappiamo offset -12 -> +14 su una scala di colori
+        // Scala colori fusi orari
         const tzColorScale = d3.scaleLinear()
             .domain([-12, 0, 14])
-            .range(["#2c3e50", "#4ca1af", "#134e5e"]) // Blu scuro -> Ciano -> Turchese scuro
+            .range(["#2c3e50", "#00ffcc", "#134e5e"])
             .interpolate(d3.interpolateRgb);
 
-        // --- LOGICA TZ DATABASE SIMULATA ---
-        // Poiché i confini esatti IANA pesano 10MB, usiamo la geometria dei paesi
-        // corretta da un dizionario avanzato e algoritmi di suddivisione (split) per i grandi paesi.
-        
-        // Offset base per nazioni a singolo fuso
-        const countryOffsets = {
-            156: 8,  // Cina (Tutta +8)
-            356: 5.5,// India (+5:30)
-            724: 1,  // Spagna (+1)
-            250: 1,  // Francia (+1)
-            380: 1,  // Italia (+1)
-            276: 1,  // Germania (+1)
-            826: 0,  // UK
-            392: 9,  // Giappone
-            32: -3,  // Argentina
-            364: 3.5 // Iran
-        };
-
-        // Funzione per calcolare l'offset di un punto (simulazione IANA)
+        // --- CALCOLO OFFSET SIMULATO (Come versione precedente) ---
+        const countryOffsets = { 156: 8, 356: 5.5, 724: 1, 250: 1, 380: 1, 276: 1, 826: 0, 392: 9, 32: -3, 364: 3.5 };
         function getOffset(feature, lon) {
             const id = feature.id;
-            
-            // 1. Eccezioni per Grandi Paesi (Suddivisione geometrica approssimata)
-            
-            // USA (840)
-            if (id === 840) {
-                if (lon > -85) return -5; // EST
-                if (lon > -100) return -6; // CST
-                if (lon > -114) return -7; // MST
-                return -8; // PST
-            }
-            // Russia (643) - Semplificata
-            if (id === 643) {
-                if (lon < 40) return 3; // Mosca
-                if (lon < 60) return 5;
-                if (lon < 80) return 7;
-                if (lon < 100) return 8;
-                return 10; 
-            }
-            // Australia (36)
-            if (id === 36) {
-                if (lon < 129) return 8;
-                if (lon < 138) return 9.5;
-                return 10;
-            }
-            // Canada (124)
-            if (id === 124) {
-                if (lon > -65) return -4;
-                if (lon > -85) return -5;
-                if (lon > -102) return -6;
-                if (lon > -114) return -7;
-                return -8;
-            }
-            // Brasile (76)
-            if (id === 76) {
-                if (lon < -60) return -4;
-                return -3; // Brasilia
-            }
-
-            // 2. Lookup da Dizionario Politico
+            // USA
+            if (id === 840) return (lon > -85)?-5:(lon>-100)?-6:(lon>-114)?-7:-8;
+            // Russia
+            if (id === 643) return (lon < 40)?3:(lon<60)?5:(lon<80)?7:(lon<100)?8:10;
+            // Australia
+            if (id === 36) return (lon < 129)?8:(lon<138)?9.5:10;
+            // Canada
+            if (id === 124) return (lon > -65)?-4:(lon>-85)?-5:(lon>-102)?-6:(lon>-114)?-7:-8;
+            // Brazil
+            if (id === 76) return (lon < -60)?-4:-3;
+            // Default Political or Geometric
             if (countryOffsets[id] !== undefined) return countryOffsets[id];
-
-            // 3. Fallback Geometrico (Lon / 15)
             return Math.round(lon / 15);
         }
 
-        // --- CARICAMENTO DATI ---
         d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(data => {
             const countries = topojson.feature(data, data.objects.countries).features;
             
-            // Pre-processamento colori
             countries.forEach(d => {
                 const center = d3.geoCentroid(d);
-                // Calcoliamo un offset "medio" per colorare l'intero paese
-                // (Per paesi divisi come USA, usiamo il centroide per il colore base)
                 d.properties.baseOffset = getOffset(d, center[0]);
             });
 
             resizeMap();
 
-            // 1. Bande Oceaniche (Meridiani ogni 15 gradi)
-            const meridians = d3.geoGraticule().step([15, 0]);
-            gOcean.append("path")
-                .datum(meridians)
-                .attr("class", "ocean-band")
-                .attr("d", path);
+            // Sfondo Oceano
+            gOcean.append("path").datum(d3.geoGraticule().step([15, 0]))
+                .attr("class", "ocean-band").attr("d", path);
 
-            // 2. Nazioni (Colorate per TimeZone)
-            gLand.selectAll("path")
-                .data(countries)
-                .enter().append("path")
+            // Nazioni
+            gLand.selectAll("path").data(countries).enter().append("path")
                 .attr("class", "land")
                 .attr("d", path)
                 .attr("fill", d => tzColorScale(d.properties.baseOffset))
-                // Interaction
                 .on("mouseenter", function(e, d) {
                     activeFeature = d;
                     d3.select(this).classed("hovered", true);
@@ -355,57 +312,49 @@
                     d3.select(this).classed("hovered", false);
                 });
 
-            // Avvio Loops
             updateSolarTerminator();
             requestAnimationFrame(timeLoop);
         });
 
-        // --- LOOP PRINCIPALE ---
+        // --- LOOP ---
         let activeFeature = null;
         let lastSunUpdate = 0;
 
-        // Gestione Mouse Move (Scanner)
         mapContainer.addEventListener("mousemove", (e) => {
             const rect = mapContainer.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            // Aggiorna Linee Scanner
             document.getElementById("scanner-x").style.left = x + "px";
             document.getElementById("scanner-y").style.top = y + "px";
             
-            // Calcola Coordinate
             const coords = projection.invert([x, y]);
             if (!coords) return;
             const [lon, lat] = coords;
 
-            // Determina Offset Reale
-            let offset;
-            let regionName = "INTERNATIONAL WATERS";
-            let regionId = "OCEANIC SECTOR";
+            let offset, name, idText;
 
             if (activeFeature) {
-                // Se sopra una nazione, usa la logica "Politica/Simulata"
-                // Passiamo la longitudine del mouse per gestire i fusi interni (USA, RU)
+                // USARE IL DIZIONARIO PER IL NOME
+                name = countryMap[activeFeature.id] || "SOVEREIGN TERRITORY";
+                idText = "ISO: " + activeFeature.id;
                 offset = getOffset(activeFeature, lon);
-                // Nome paese (dizionario minimale)
-                regionName = "SOVEREIGN TERRITORY"; // Placeholder, idealmente usare dizionario nomi
-                regionId = "ISO: " + activeFeature.id;
             } else {
-                // Oceano: Geometria pura
+                name = "INTERNATIONAL WATERS";
+                idText = "SECTOR: OCEANIC";
                 offset = Math.round(lon / 15);
             }
 
-            // Aggiorna UI Footer
             const sign = offset >= 0 ? "+" : "";
             const zoneTime = DateTime.now().toUTC().plus({ hours: offset });
 
-            document.getElementById("inf-name").innerText = regionName;
-            document.getElementById("inf-id").innerText = regionId;
+            // Aggiorna Footer
+            document.getElementById("inf-name").innerText = name;
+            document.getElementById("inf-id").innerText = idText;
             document.getElementById("inf-offset").innerText = `UTC ${sign}${offset} [${zoneTime.toFormat("HH:mm")}]`;
-            document.getElementById("inf-coords").innerText = `${Math.abs(lat).toFixed(2)}°${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(2)}°${lon>0?'E':'W'}`;
+            document.getElementById("inf-coords").innerText = `${Math.abs(lat).toFixed(2)}° ${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(2)}° ${lon>0?'E':'W'}`;
 
-            // Tag Galleggiante
+            // Tag
             const tag = document.getElementById("scanner-tag");
             tag.style.display = "block";
             tag.style.left = (x + 10) + "px";
@@ -423,37 +372,29 @@
             
             const circle = d3.geoCircle().center([antiSunLon, -declination]).radius(90)();
             const nightPath = gNight.selectAll("path").data([circle]);
-            nightPath.enter().append("path")
-                .attr("class", "night night-blur")
-                .merge(nightPath).attr("d", path);
+            nightPath.enter().append("path").attr("class", "night night-blur").merge(nightPath).attr("d", path);
         }
 
         function timeLoop() {
             const now = DateTime.now();
 
-            // Aggiorna Orologi
-            document.getElementById("val-era").innerText = (now.year + 10000) + " HE";
-            document.getElementById("val-year").innerText = now.year;
-            document.getElementById("val-week").innerText = now.weekNumber;
-            document.getElementById("val-day").innerText = now.ordinal;
-            document.getElementById("val-hms").innerText = now.toFormat("HH:mm:ss");
-            document.getElementById("val-ms").innerText = "." + now.toFormat("SSS");
+            document.getElementById("v-year").innerText = now.year;
+            document.getElementById("v-week").innerText = now.weekNumber;
+            document.getElementById("v-day").innerText = now.ordinal;
+            document.getElementById("v-hms").innerText = now.toFormat("HH:mm:ss");
+            document.getElementById("v-ms").innerText = "." + now.toFormat("SSS");
 
-            // Nano-Simulazione
             const micro = Math.floor(performance.now() % 1000).toString().padStart(3,'0');
             const nano = Math.floor(Math.random() * 999).toString().padStart(3,'0');
-            document.getElementById("val-micro").innerText = micro;
-            document.getElementById("val-nano").innerText = nano;
+            document.getElementById("v-micro").innerText = micro;
+            document.getElementById("v-nano").innerText = nano;
 
-            // Sole (ogni 1s)
             if (Date.now() - lastSunUpdate > 1000) {
                 updateSolarTerminator();
                 lastSunUpdate = Date.now();
             }
-
             requestAnimationFrame(timeLoop);
         }
-
     </script>
 </body>
 </html>
