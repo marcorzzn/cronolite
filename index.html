@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cronoLite // Fast Core</title>
+    <title>cronoLite // Time Scanner</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
@@ -16,18 +16,19 @@
             background-color: #050505;
             font-family: 'Courier New', Courier, monospace;
             color: #e0e0e0;
+            cursor: none; /* Nascondiamo il cursore standard per usare il nostro scanner */
         }
 
         #app-container {
             display: grid;
-            grid-template-rows: auto 1fr;
+            grid-template-rows: auto 1fr auto; /* Header - Mappa - Footer Dati */
             height: 100vh; width: 100vw;
         }
 
-        /* --- HEADER MINIMALE --- */
+        /* --- HEADER --- */
         .hud-header {
-            padding: 10px 20px;
-            background: #000;
+            padding: 15px 30px;
+            background: rgba(0,0,0,0.8);
             border-bottom: 1px solid #333;
             display: flex; justify-content: space-between; align-items: center;
             z-index: 10;
@@ -38,53 +39,65 @@
             color: #fff; letter-spacing: -2px;
             font-variant-numeric: tabular-nums;
         }
-        .milliseconds { color: #00ffcc; font-size: 1rem; vertical-align: baseline; }
+        .milliseconds { color: #00ffcc; font-size: 1rem; }
 
-        .location-label {
-            font-size: 0.8rem; color: #00ffcc; text-transform: uppercase; letter-spacing: 2px;
-        }
-
-        /* --- MAPPA PERFORMANCE --- */
+        /* --- MAPPA --- */
         #map-wrapper { 
             position: relative; width: 100%; height: 100%; 
-            background: #020408; /* Colore dello spazio profondo */
+            background: #020408; 
+            overflow: hidden;
         }
 
-        /* 1. ZONA DI LUCE (GIORNO) */
-        /* La sfera base rappresenta la terra illuminata */
-        .sphere { 
-            fill: #1a2530; /* Colore Oceano Giorno (Blu scuro ma visibile) */
+        /* Colori Mappa */
+        .sphere { fill: #0b1016; }
+        .land { fill: #2a3b4c; stroke: none; } /* Terra scura di base */
+        .land-highlight { fill: #e0f7fa; transition: fill 0.2s; } /* Terra illuminata */
+        
+        .night { fill: #000; fill-opacity: 0.75; pointer-events: none; }
+        .night-blur { filter: url(#twilight-filter); }
+
+        /* Linee Fusi Orari */
+        .timezone-line {
+            fill: none;
+            stroke: #00ffcc;
+            stroke-width: 0.3px;
+            stroke-opacity: 0.1; /* Molto tenue di default */
         }
         
-        .land { 
-            fill: #e0f7fa; /* TERRA ILLUMINATA: Biancastro/Ciano chiaro */
-            stroke: none;
-            transition: fill 0.5s;
+        /* Spicchio attivo */
+        .timezone-active {
+            fill: #00ffcc;
+            fill-opacity: 0.1; /* Evidenzia la fascia oraria */
+            stroke: #00ffcc;
+            stroke-opacity: 0.8;
+            stroke-width: 1px;
         }
 
-        /* 2. ZONA DI BUIO (NOTTE) */
-        /* Questo layer copre la terra e l'oceano */
-        .night { 
-            fill: #000000; 
-            fill-opacity: 0.85; /* Non nero totale, lascia intravedere appena */
+        /* Cursori Scanner */
+        .scanner-line {
+            position: absolute;
+            background: #00ffcc;
+            opacity: 0.7;
+            pointer-events: none;
+            box-shadow: 0 0 8px #00ffcc;
+        }
+        #scanner-x { height: 100%; width: 1px; top: 0; left: 50%; } /* Verticale */
+        #scanner-y { width: 100%; height: 1px; top: 50%; left: 0; } /* Orizzontale */
+
+        /* --- FOOTER DATI --- */
+        .hud-footer {
+            padding: 15px 30px;
+            background: rgba(0,0,0,0.9);
+            border-top: 1px solid #333;
+            display: flex; justify-content: space-between; align-items: center;
+            font-size: 0.9rem;
+            color: #777;
         }
 
-        /* 3. CREPUSCOLO (SFUMATURA) */
-        /* Usiamo un filtro SVG blur per sfumare il bordo della notte */
-        .night-blur {
-            filter: url(#twilight-filter);
-        }
-
-        /* Griglia e dettagli */
-        .graticule { fill: none; stroke: #333; stroke-width: 0.5px; stroke-dasharray: 2,2; }
-        
-        /* Cursore interattivo */
-        .cursor-info {
-            position: absolute; bottom: 20px; right: 20px;
-            text-align: right; pointer-events: none;
-        }
-        .info-val { font-size: 1.2rem; color: #fff; font-weight: bold; }
-        .info-label { font-size: 0.7rem; color: #666; text-transform: uppercase; }
+        .data-block { display: flex; flex-direction: column; }
+        .data-label { font-size: 0.6rem; letter-spacing: 2px; margin-bottom: 3px; }
+        .data-val { color: #fff; font-weight: bold; font-size: 1.2rem; }
+        .data-accent { color: #00ffcc; }
 
     </style>
 </head>
@@ -93,97 +106,102 @@
     <svg style="height:0; position:absolute;">
         <defs>
             <filter id="twilight-filter" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" />
             </filter>
         </defs>
     </svg>
 
     <div id="app-container">
+        
         <header class="hud-header">
-            <div>
-                <div class="location-label" id="current-city">ROMA</div>
-                <div class="main-clock">
-                    <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.00</span>
-                </div>
+            <div class="main-clock">
+                <span id="clock-hms">00:00:00</span><span class="milliseconds" id="clock-ms">.00</span>
             </div>
-            <div style="display:flex; gap:15px; font-size:0.8rem;">
-                <span onclick="setZone('Europe/Rome', 'ROMA')" style="cursor:pointer; color:#00ffcc">ROM</span>
-                <span onclick="setZone('America/New_York', 'NEW YORK')" style="cursor:pointer; color:#777">NYC</span>
-                <span onclick="setZone('Asia/Tokyo', 'TOKYO')" style="cursor:pointer; color:#777">TKY</span>
+            <div style="text-align:right">
+                <div style="font-size:0.7rem; color:#00ffcc">CRONO//LITE</div>
+                <div style="font-size:0.6rem; color:#555">SCANNER MODE: ACTIVE</div>
             </div>
         </header>
 
         <div id="map-wrapper">
-            <div class="cursor-info">
-                <div class="info-val" id="solar-status">--</div>
-                <div class="info-label">Stato Solare</div>
-            </div>
+            <div id="scanner-x" class="scanner-line"></div>
+            <div id="scanner-y" class="scanner-line"></div>
         </div>
+
+        <footer class="hud-footer">
+            <div class="data-block">
+                <span class="data-label">TIME ZONE OFFSET</span>
+                <span class="data-val data-accent" id="offset-display">UTC +0</span>
+            </div>
+            <div class="data-block" style="align-items: flex-end;">
+                <span class="data-label">COORDINATE</span>
+                <span class="data-val" id="coords-display">0°, 0°</span>
+            </div>
+        </footer>
     </div>
 
     <script>
-        // --- SETUP VELOCE ---
         const DateTime = luxon.DateTime;
-        let activeZone = "Europe/Rome";
         
+        // --- CONFIGURAZIONE ---
         const mapContainer = document.getElementById("map-wrapper");
         const width = mapContainer.clientWidth;
         const height = mapContainer.clientHeight;
-
-        // SVG Container
+        
+        // SVG
         const svg = d3.select("#map-wrapper").append("svg")
-            .attr("width", "100%")
-            .attr("height", "100%")
-            .attr("viewBox", [0, 0, width, height]);
+            .attr("width", width)
+            .attr("height", height); // Niente ViewBox per evitare scaling strano, pixel 1:1
 
-        // Proiezione (Equal Earth è bella, ma Mercator è leggermente più veloce nei calcoli. Teniamo Equal Earth per estetica)
+        // Proiezione Equal Earth (Fissa e Centrata)
         const projection = d3.geoEqualEarth()
-            .scale(width / 5.5)
+            .scale(width / 5.5) // Scala adatta a schermi desktop
             .translate([width / 2, height / 2]);
 
         const path = d3.geoPath(projection);
 
-        // --- LAYER RENDERING (Ordine: Mare -> Terra -> Notte) ---
+        // --- LIVELLI ---
         const gSphere = svg.append("g");
+        const gTimeZones = svg.append("g"); // Layer fusi orari (sotto la terra)
         const gLand = svg.append("g");
-        const gGraticule = svg.append("g");
-        const gNight = svg.append("g"); // L'ombra va sopra tutto
+        const gNight = svg.append("g");
 
-        // Setup Zoom (Migliorato per performance)
-        const zoom = d3.zoom()
-            .scaleExtent([1, 8])
-            .on("zoom", (event) => {
-                const t = event.transform;
-                gSphere.attr("transform", t);
-                gLand.attr("transform", t);
-                gGraticule.attr("transform", t);
-                gNight.attr("transform", t);
-                // Non ridisegniamo stroke-width durante lo zoom per non laggare
-            });
-        svg.call(zoom);
+        // 1. Sfera Base
+        gSphere.append("path")
+            .datum({type: "Sphere"})
+            .attr("class", "sphere")
+            .attr("d", path);
 
-        // --- CARICAMENTO DATI (CDN VELOCE - Solo Nazioni) ---
-        // Usiamo un file ottimizzato da 50kb invece di 15MB
+        // 2. Griglia Fusi Orari (Geometrica: ogni 15 gradi)
+        // Creiamo 24 spicchi per rappresentare le ore
+        const zones = d3.range(-180, 180, 15).map(lon => {
+            return {
+                type: "Polygon",
+                coordinates: [[
+                    [lon, -90], [lon + 15, -90], 
+                    [lon + 15, 90], [lon, 90], 
+                    [lon, -90]
+                ]],
+                offset: Math.round(lon / 15) // Offset approssimato
+            };
+        });
+
+        // Disegniamo i fusi orari invisibili (o quasi) per l'interazione
+        const zonePaths = gTimeZones.selectAll("path")
+            .data(zones)
+            .enter().append("path")
+            .attr("class", "timezone-line") // Default style
+            .attr("d", path);
+
+        // --- DATI GEOGRAFICI VELOCI ---
         d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(data => {
-            
-            // 1. Disegna Sfera (Oceano)
-            gSphere.append("path")
-                .datum({type: "Sphere"})
-                .attr("class", "sphere")
-                .attr("d", path);
-
-            // 2. Disegna Griglia
-            gGraticule.append("path")
-                .datum(d3.geoGraticule())
-                .attr("class", "graticule")
-                .attr("d", path);
-
-            // 3. Disegna Terre Emerse (Bianche per indicare luce)
             const countries = topojson.feature(data, data.objects.countries);
+            
+            // Terra
             gLand.selectAll("path")
                 .data(countries.features)
                 .enter().append("path")
-                .attr("class", "land")
+                .attr("class", "land land-highlight") // Colore chiaro
                 .attr("d", path);
 
             // Avvia loop
@@ -191,7 +209,50 @@
             requestAnimationFrame(updateLoop);
         });
 
-        // --- CALCOLO SOLARE EFFICIENTE ---
+
+        // --- LOGICA SCANNER (MOUSE) ---
+        mapContainer.addEventListener("mousemove", (e) => {
+            const rect = mapContainer.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // 1. Muovi le linee dello scanner
+            document.getElementById("scanner-x").style.left = x + "px";
+            document.getElementById("scanner-y").style.top = y + "px";
+
+            // 2. Calcola coordinate geografiche (inversione proiezione)
+            const coords = projection.invert([x, y]);
+            
+            if (coords) {
+                const lon = coords[0];
+                const lat = coords[1];
+
+                // Aggiorna Display Coordinate
+                document.getElementById("coords-display").innerText = 
+                    `${Math.abs(lat).toFixed(1)}°${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(1)}°${lon>0?'E':'W'}`;
+
+                // 3. Calcola Offset Orario (Approssimato geometricamente: Lon / 15)
+                // Nota: I fusi reali sono politici, ma quelli geometrici sono perfetti per la visualizzazione "Scanner"
+                let offset = Math.round(lon / 15);
+                const offsetStr = offset >= 0 ? `UTC +${offset}` : `UTC ${offset}`;
+                
+                const timeInZone = DateTime.now().toUTC().plus({ hours: offset }).toFormat("HH:mm");
+                document.getElementById("offset-display").innerHTML = `${offsetStr} <span style="font-size:0.8rem; color:#777">(${timeInZone})</span>`;
+
+                // 4. Evidenzia lo spicchio (Fuso Orario) corrente
+                // Rimuovi classe active da tutti
+                zonePaths.attr("class", "timezone-line");
+                
+                // Trova quale spicchio contiene la longitudine corrente
+                zonePaths.filter(d => lon >= d.coordinates[0][0][0] && lon < d.coordinates[0][1][0])
+                         .attr("class", "timezone-active");
+            }
+        });
+
+
+        // --- LOGICA SOLARE E OROLOGIO ---
+        let lastSunUpdate = 0;
+
         function getSunPosition(date) {
             const rad = Math.PI / 180;
             const day = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
@@ -201,53 +262,29 @@
             return [lambda, declination];
         }
 
-        // --- LOOP PRINCIPALE (Separato per non intasare) ---
-        let lastSunUpdate = 0;
-
-        function updateLoop() {
-            const now = DateTime.now().setZone(activeZone);
-            const jsDate = new Date();
-
-            // 1. Aggiorna Orologio (Ogni frame)
-            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
-            document.getElementById('clock-ms').innerText = "." + now.toFormat('SS'); // Solo 2 cifre ms per stabilità visiva
-
-            // 2. Aggiorna Ombra (Ogni 500ms è sufficiente, l'occhio non nota la differenza)
-            if (jsDate.getTime() - lastSunUpdate > 500) {
-                updateSolarTerminator(jsDate);
-                lastSunUpdate = jsDate.getTime();
-            }
-
-            requestAnimationFrame(updateLoop);
-        }
-
         function updateSolarTerminator(date = new Date()) {
             const sunPos = getSunPosition(date);
             const antiSun = [sunPos[0] + 180, -sunPos[1]];
-            
-            // Cerchio d'ombra (Notte)
             const circle = d3.geoCircle().center(antiSun).radius(90)();
 
-            // Aggiorna Path Notte
             const nightPath = gNight.selectAll("path").data([circle]);
-            
             nightPath.enter().append("path")
-                .attr("class", "night night-blur") // Applica la classe Blur
+                .attr("class", "night night-blur")
                 .merge(nightPath)
                 .attr("d", path);
-            
-            // Info Debug
-            document.getElementById("solar-status").innerText = "Zenith " + sunPos[0].toFixed(1) + "°";
         }
 
-        // --- INTERAZIONE UI ---
-        window.setZone = function(zone, label) {
-            activeZone = zone;
-            document.getElementById('current-city').innerText = label;
+        function updateLoop() {
+            const now = DateTime.now();
             
-            // Aggiorna stile pulsanti (semplice reset colore)
-            document.querySelectorAll('span[onclick]').forEach(el => el.style.color = '#777');
-            event.target.style.color = '#00ffcc';
+            document.getElementById('clock-hms').innerText = now.toFormat('HH:mm:ss');
+            document.getElementById('clock-ms').innerText = "." + now.toFormat('SS');
+
+            if (new Date().getTime() - lastSunUpdate > 1000) { // Aggiorna ombra ogni secondo
+                updateSolarTerminator();
+                lastSunUpdate = new Date().getTime();
+            }
+            requestAnimationFrame(updateLoop);
         }
 
     </script>
