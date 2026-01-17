@@ -3,25 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>cronoLite // Full Scanner</title>
+    <title>cronoLite // Global Scanner</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/luxon/3.4.4/luxon.min.js"></script>
     <script src="https://d3js.org/d3.v7.min.js"></script>
     <script src="https://unpkg.com/topojson@3"></script>
     
     <style>
-        /* --- CORE STYLES --- */
+        /* --- STILE BASE CYBER --- */
         body, html {
             margin: 0; padding: 0; height: 100%; overflow: hidden;
-            background-color: #050505;
+            background-color: #020408; /* Nero profondo leggermente blu */
             font-family: 'Courier New', Courier, monospace;
             color: #e0e0e0;
-            cursor: none; 
+            cursor: crosshair; /* Cursore tecnico */
         }
 
         #app-container {
             display: grid;
-            /* Definisce 3 righe: Header Dati (Giallo), Mappa (Rosso), Footer Info (Blu) */
+            /* Layout: Header (Auto) - Mappa (Resto dello spazio) - Footer (Auto) */
             grid-template-rows: auto 1fr auto; 
             height: 100vh; width: 100vw;
         }
@@ -29,86 +29,103 @@
         /* --- 1. ZONA GIALLA: STRISCIA TEMPORALE --- */
         .time-strip {
             background: #000;
-            border-bottom: 1px solid #333;
-            padding: 8px 20px;
+            border-bottom: 1px solid #00ffcc;
+            padding: 10px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             white-space: nowrap;
-            overflow: hidden;
-            z-index: 10;
+            box-shadow: 0 0 15px rgba(0, 255, 204, 0.1);
+            z-index: 20;
         }
 
         .time-group {
             display: flex;
-            gap: 15px;
+            gap: 20px;
             align-items: baseline;
         }
 
+        .t-label { color: #555; font-size: 0.6rem; margin-right: 4px; letter-spacing: 1px; }
         .t-val { color: #fff; font-weight: bold; }
-        .t-label { color: #555; font-size: 0.6rem; margin-right: 3px; text-transform: uppercase; }
-        
-        /* Stile specifico per i numeri veloci */
-        .nano-section { color: #00ffcc; font-family: monospace; letter-spacing: 1px; }
-        .nano-faint { opacity: 0.5; font-size: 0.7em; }
+        .t-accent { color: #00ffcc; font-size: 1.2rem; }
+
+        /* Micro-tempo */
+        .nano-display {
+            font-family: monospace;
+            color: #00ffcc;
+            opacity: 0.8;
+            width: 120px;
+            text-align: right;
+        }
+        .faint { opacity: 0.4; font-size: 0.8em; }
 
         /* --- 2. ZONA ROSSA: MAPPA --- */
         #map-wrapper { 
             position: relative; width: 100%; height: 100%; 
-            background: #020408; 
+            background: radial-gradient(circle at center, #0b1016 0%, #000000 100%);
             overflow: hidden;
-            /* Padding interno per evitare che i poli tocchino i bordi */
-            padding: 20px 0; 
         }
 
         /* Elementi SVG */
-        .sphere { fill: #080c10; stroke: none; }
+        .sphere { fill: none; } /* Sfondo gestito dal CSS container */
         
+        /* Fasce Fusi Orari (Background) */
+        .timezone-band {
+            fill: #fff;
+            fill-opacity: 0.03; /* Molto sottile */
+            stroke: none;
+        }
+        .timezone-band:nth-child(even) { fill-opacity: 0.07; } /* Alternanza righe */
+
+        /* Terre Emerse */
         .land { 
-            fill: #1f2a36; 
+            fill: #1a2634; 
             stroke: #000; 
             stroke-width: 0.2px; 
-            transition: fill 0.1s; 
+            transition: fill 0.05s; 
         }
+        /* Hover e Active */
+        .land.hovered { fill: #00ffcc !important; fill-opacity: 0.5; stroke: #00ffcc; }
+        .land.same-zone { fill: #00ffcc !important; fill-opacity: 0.15; }
 
-        /* Highlights */
-        .land.hovered { fill: #00ffcc !important; fill-opacity: 0.6; }
-        .land.same-zone { fill: #00ffcc !important; fill-opacity: 0.2; }
-
-        .night { fill: #000; fill-opacity: 0.8; pointer-events: none; }
+        /* Ombra Notte */
+        .night { fill: #000; fill-opacity: 0.75; pointer-events: none; }
         .night-blur { filter: url(#twilight-filter); }
 
-        .graticule { fill: none; stroke: #00ffcc; stroke-width: 0.15px; stroke-opacity: 0.1; }
+        /* Griglia */
+        .graticule { fill: none; stroke: #00ffcc; stroke-width: 0.1px; stroke-opacity: 0.1; }
 
-        /* Cursori Scanner */
+        /* Scanner Overlay */
         .scanner-line {
-            position: absolute; background: #00ffcc; opacity: 0.6; pointer-events: none;
-            box-shadow: 0 0 5px #00ffcc; z-index: 5;
+            position: absolute; background: #00ffcc; opacity: 0.5; pointer-events: none;
+            box-shadow: 0 0 4px #00ffcc; z-index: 5;
         }
         #scanner-x { height: 100%; width: 1px; top: 0; left: 50%; } 
         #scanner-y { width: 100%; height: 1px; top: 50%; left: 0; }
         
-        /* Etichetta galleggiante */
-        #scanner-label {
-            position: absolute; color: #00ffcc; background: rgba(0,0,0,0.8);
-            border: 1px solid #00ffcc; padding: 2px 6px; font-size: 0.7rem;
-            pointer-events: none; transform: translate(10px, -25px); display: none; z-index: 6;
+        #scanner-tag {
+            position: absolute; color: #000; background: #00ffcc;
+            padding: 2px 5px; font-size: 0.7rem; font-weight: bold;
+            pointer-events: none; display: none; z-index: 6;
+            transform: translate(10px, -20px);
         }
 
-        /* --- 3. ZONA AZZURRA: INFO PAESE --- */
+        /* --- 3. ZONA AZZURRA: INFO PANEL --- */
         .hud-footer {
-            padding: 10px 30px;
             background: #050505;
-            border-top: 1px solid #00ffcc; /* Bordo azzurro richiesto */
+            border-top: 1px solid #00ffcc;
+            padding: 15px 30px;
             display: flex; justify-content: space-between; align-items: center;
-            height: 60px;
+            height: 70px;
+            position: relative;
+            z-index: 20;
         }
 
-        .info-box { display: flex; flex-direction: column; }
-        .info-title { font-size: 0.6rem; color: #00ffcc; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 2px; }
-        .info-content { font-size: 1.1rem; color: #fff; font-weight: bold; min-width: 200px; }
-        .info-sub { font-size: 0.8rem; color: #777; }
+        .info-block { display: flex; flex-direction: column; }
+        .info-head { font-size: 0.6rem; color: #00ffcc; letter-spacing: 2px; margin-bottom: 5px; }
+        .info-main { font-size: 1.2rem; color: #fff; font-weight: bold; text-shadow: 0 0 10px rgba(255,255,255,0.2); }
+        .info-sub { font-size: 0.8rem; color: #666; font-family: sans-serif; }
 
     </style>
 </head>
@@ -117,262 +134,273 @@
     <svg style="height:0; position:absolute;">
         <defs>
             <filter id="twilight-filter" x="-50%" y="-50%" width="200%" height="200%">
-                <feGaussianBlur in="SourceGraphic" stdDeviation="6" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="5" />
             </filter>
         </defs>
     </svg>
 
     <div id="app-container">
         
-        <div class="time-strip">
+        <header class="time-strip">
             <div class="time-group">
-                <span><span class="t-label">ERA</span><span class="t-val" id="t-era">--</span></span>
-                <span><span class="t-label">MIL</span><span class="t-val" id="t-mil">--</span></span>
-                <span><span class="t-label">SEC</span><span class="t-val" id="t-cen">--</span></span>
-                <span><span class="t-label">ANNO</span><span class="t-val" id="t-year">--</span></span>
+                <div><span class="t-label">ERA UMANA</span><span class="t-val" id="d-era">--</span></div>
+                <div><span class="t-label">MILLENNIO</span><span class="t-val" id="d-mil">--</span></div>
+                <div><span class="t-label">SECOLO</span><span class="t-val" id="d-cen">--</span></div>
             </div>
 
-            <div class="time-group">
-                <span><span class="t-label">SETT</span><span class="t-val" id="t-week">--</span></span>
-                <span><span class="t-label">GG</span><span class="t-val" id="t-day">--</span></span>
-                <span style="margin: 0 10px; color:#333">|</span>
-                <span class="t-val" style="font-size: 1.4rem;" id="t-hms">00:00:00</span>
-            </div>
-
-            <div class="time-group" style="width: 180px; justify-content: flex-end;">
-                <div class="nano-section">
-                    <span id="t-ms" style="font-size:1.1em">.000</span>
-                    <span id="t-micro" class="nano-faint">000</span>
-                    <span id="t-nano" class="nano-faint" style="opacity:0.3">000</span>
+            <div class="time-group" style="flex-grow: 1; justify-content: center;">
+                <div><span class="t-label">ANNO</span><span class="t-val" id="d-year">--</span></div>
+                <div><span class="t-label">MESE</span><span class="t-val" id="d-month">--</span></div>
+                <div><span class="t-label">SETT</span><span class="t-val" id="d-week">--</span></div>
+                <div style="margin-left: 20px;">
+                    <span class="t-accent" id="d-hms">00:00:00</span>
                 </div>
             </div>
-        </div>
+
+            <div class="time-group">
+                <div class="nano-display">
+                    <span id="d-ms">.000</span><span id="d-micro" class="faint">000</span><span id="d-nano" class="faint" style="opacity:0.2">000</span>
+                </div>
+            </div>
+        </header>
+
 
         <div id="map-wrapper">
             <div id="scanner-x" class="scanner-line"></div>
             <div id="scanner-y" class="scanner-line"></div>
-            <div id="scanner-label">UTC</div>
+            <div id="scanner-tag">UTC</div>
         </div>
 
+
         <footer class="hud-footer">
-            <div class="info-box">
-                <span class="info-title">TARGET SECTOR</span>
-                <span class="info-content" id="country-name">OCEAN WATERS</span>
-                <span class="info-sub" id="country-id">ID: NULL</span>
+            <div class="info-block">
+                <span class="info-head">TARGET SECTOR</span>
+                <span class="info-main" id="inf-country">SCANNING ORBIT...</span>
+                <span class="info-sub" id="inf-detail">NO SIGNAL</span>
             </div>
 
-            <div class="info-box" style="align-items: flex-end; text-align: right;">
-                <span class="info-title">COORDINATE DATA</span>
-                <span class="info-content" id="offset-display">SCANNING...</span>
-                <span class="info-sub" id="coords-display">00.0° N, 00.0° E</span>
+            <div class="info-block" style="text-align: right; align-items: flex-end;">
+                <span class="info-head">COORDINATE & OFFSET</span>
+                <span class="info-main" id="inf-offset">UTC --</span>
+                <span class="info-sub" id="inf-coords">00.00° N, 00.00° E</span>
             </div>
         </footer>
+
     </div>
 
     <script>
         const DateTime = luxon.DateTime;
         
-        // --- 1. CONFIGURAZIONE MAPPA & SCALA (Fix Zona Rossa) ---
-        const mapWrapper = document.getElementById("map-wrapper");
-        
-        // Creiamo l'SVG
+        // --- CONFIGURAZIONE MAPPA ---
+        const mapContainer = document.getElementById("map-wrapper");
         const svg = d3.select("#map-wrapper").append("svg")
             .attr("width", "100%")
             .attr("height", "100%");
 
-        // Proiezione: Usiamo fitExtent invece di scale manuale per garantire che tutto il mondo sia visibile
-        // Lasciamo 20px di margine attorno
+        // 1. Proiezione Equal Earth con FitExtent (Risolve il problema dei bordi tagliati)
         const projection = d3.geoEqualEarth();
         const path = d3.geoPath(projection);
 
-        // Layers
-        const gSphere = svg.append("g");
-        const gLand = svg.append("g");
-        const gGraticule = svg.append("g");
-        const gNight = svg.append("g");
+        // Funzione responsive per adattare la mappa
+        function fitMap() {
+            const w = mapContainer.clientWidth;
+            const h = mapContainer.clientHeight;
+            // fitExtent calcola scala e traslazione per far stare la sfera nel rettangolo con margine [20,20]
+            projection.fitExtent([[20, 20], [w - 20, h - 20]], {type: "Sphere"});
+            svg.selectAll("path").attr("d", path);
+        }
+        window.addEventListener("resize", fitMap);
 
-        // --- DIZIONARIO PAESI (Fix Zona Azzurra) ---
-        // Mappatura manuale ID numerico ISO -> Nome per i principali paesi
-        // (TopoJSON 110m contiene solo ID numerici per essere leggero)
+        // Gruppi SVG (Layers)
+        const gZones = svg.append("g");  // Fasce orarie sfondo
+        const gLand = svg.append("g");   // Nazioni
+        const gNight = svg.append("g");  // Notte
+        const gGraticule = svg.append("g"); // Griglia
+
+        // --- DIZIONARIO DATI PAESI (Risolve Info Paese) ---
+        // TopoJSON usa ID numerici. Questo mappa ID -> Nome. 
+        // Nota: Per precisione assoluta servirebbero dati più pesanti, qui mappiamo i principali.
         const countryNames = {
-            4: "Afghanistan", 8: "Albania", 12: "Algeria", 32: "Argentina", 36: "Australia",
-            40: "Austria", 50: "Bangladesh", 56: "Belgium", 68: "Bolivia", 76: "Brazil",
-            100: "Bulgaria", 124: "Canada", 152: "Chile", 156: "China", 170: "Colombia",
-            192: "Cuba", 203: "Czechia", 208: "Denmark", 218: "Ecuador", 818: "Egypt",
-            246: "Finland", 250: "France", 276: "Germany", 300: "Greece", 348: "Hungary",
-            352: "Iceland", 356: "India", 360: "Indonesia", 364: "Iran", 368: "Iraq",
-            372: "Ireland", 376: "Israel", 380: "Italy", 392: "Japan", 404: "Kenya",
-            410: "South Korea", 484: "Mexico", 504: "Morocco", 528: "Netherlands", 
-            554: "New Zealand", 566: "Nigeria", 578: "Norway", 586: "Pakistan", 604: "Peru",
-            608: "Philippines", 616: "Poland", 620: "Portugal", 642: "Romania", 643: "Russia",
-            682: "Saudi Arabia", 710: "South Africa", 724: "Spain", 752: "Sweden", 
-            756: "Switzerland", 764: "Thailand", 792: "Turkey", 804: "Ukraine", 
-            826: "United Kingdom", 840: "United States", 862: "Venezuela", 704: "Vietnam"
+            4:"Afghanistan",8:"Albania",12:"Algeria",32:"Argentina",36:"Australia",40:"Austria",56:"Belgium",76:"Brazil",
+            124:"Canada",156:"China",170:"Colombia",208:"Denmark",818:"Egypt",246:"Finland",250:"France",276:"Germany",
+            300:"Greece",352:"Iceland",356:"India",360:"Indonesia",364:"Iran",368:"Iraq",372:"Ireland",376:"Israel",
+            380:"Italy",392:"Japan",410:"South Korea",484:"Mexico",528:"Netherlands",554:"New Zealand",578:"Norway",
+            608:"Philippines",616:"Poland",620:"Portugal",643:"Russia",682:"Saudi Arabia",710:"South Africa",724:"Spain",
+            752:"Sweden",756:"Switzerland",792:"Turkey",804:"Ukraine",826:"United Kingdom",840:"United States",704:"Vietnam"
         };
         
-        // Offset Politici (come prima)
+        // Offset Politici Manuali (per sovrascrivere la geometria)
         const politicalOffsets = {
             156: 8, 356: 5.5, 724: 1, 250: 1, 380: 1, 276: 1, 826: 0, 
             840: -5, 643: 3, 32: -3, 76: -3, 36: 10, 392: 9
         };
 
-        // --- RESIZE INTELLIGENTE ---
-        function resizeMap() {
-            const w = mapWrapper.clientWidth;
-            const h = mapWrapper.clientHeight;
-            
-            // Adatta la proiezione al rettangolo disponibile con 30px di margine
-            // Questo risolve il problema dei poli tagliati
-            projection.fitExtent([[20, 20], [w - 20, h - 20]], {type: "Sphere"});
-            
-            // Aggiorna tutti i percorsi
-            svg.selectAll("path").attr("d", path);
-        }
-        window.addEventListener("resize", resizeMap);
+        // --- GENERAZIONE FASCE ORARIE VISIVE (Risolve "Fuso non corretto") ---
+        // Crea 24 poligoni verticali per dare il riferimento visivo stile TimeAndDate
+        const timeZonesGeo = d3.range(-180, 180, 15).map(lon => ({
+            type: "Feature",
+            geometry: {
+                type: "Polygon",
+                coordinates: [[
+                    [lon, -90], [lon + 15, -90], 
+                    [lon + 15, 90], [lon, 90], 
+                    [lon, -90]
+                ]]
+            },
+            properties: { offset: Math.round(lon / 15) }
+        }));
 
         // --- CARICAMENTO DATI ---
         d3.json("https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json").then(data => {
-            const countries = topojson.feature(data, data.objects.countries).features;
-            
-            // Calcola offset
-            countries.forEach(d => {
-                const centroid = d3.geoCentroid(d);
-                let offset = Math.round(centroid[0] / 15);
-                if (politicalOffsets[d.id]) offset = politicalOffsets[d.id];
-                d.properties.utcOffset = offset;
-                // Assegna nome se disponibile nel nostro dizionario
-                d.properties.displayName = countryNames[d.id] || "Unknown Region";
-            });
+            fitMap(); // Prima calibrazione
 
-            // Disegna Sfera Base
-            gSphere.append("path").datum({type: "Sphere"}).attr("class", "sphere").attr("d", path);
+            // 1. Disegna Fasce Orarie (Sfondo)
+            gZones.selectAll("path")
+                .data(timeZonesGeo)
+                .enter().append("path")
+                .attr("class", "timezone-band")
+                .attr("d", path);
 
-            // Disegna Griglia
+            // 2. Disegna Griglia Sottile
             gGraticule.append("path").datum(d3.geoGraticule()).attr("class", "graticule").attr("d", path);
 
-            // Disegna Nazioni
+            // 3. Disegna Nazioni
+            const countries = topojson.feature(data, data.objects.countries).features;
+            // Pre-calcolo dati
+            countries.forEach(d => {
+                // Offset stimato dal centroide
+                const center = d3.geoCentroid(d);
+                let off = Math.round(center[0] / 15);
+                if(politicalOffsets[d.id]) off = politicalOffsets[d.id];
+                
+                d.properties.utcOffset = off;
+                d.properties.name = countryNames[d.id] || "Unknown Territory";
+            });
+
             gLand.selectAll("path")
                 .data(countries)
                 .enter().append("path")
                 .attr("class", "land")
                 .attr("d", path)
-                .on("mouseenter", function(event, d) {
-                    // Update Info Panel (Zona Azzurra)
-                    updateCountryInfo(d.properties.displayName, d.id, d.properties.utcOffset);
-                    activeCountryOffset = d.properties.utcOffset;
+                .on("mouseover", function(e, d) {
+                    activeCountry = d;
                     d3.select(this).classed("hovered", true);
                 })
-                .on("mouseleave", function(event, d) {
-                    updateCountryInfo("OCEAN WATERS", "NULL", null);
-                    activeCountryOffset = null;
+                .on("mouseout", function(e, d) {
+                    activeCountry = null;
                     d3.select(this).classed("hovered", false);
                 });
 
-            // Prima chiamata resize per centrare tutto
-            resizeMap();
+            // Avvia loop
             updateSolarTerminator();
             requestAnimationFrame(updateLoop);
         });
 
-        // --- UI UTILS ---
-        const scannerX = document.getElementById("scanner-x");
-        const scannerY = document.getElementById("scanner-y");
-        const scannerLabel = document.getElementById("scanner-label");
-        const infoName = document.getElementById("country-name");
-        const infoId = document.getElementById("country-id");
-        const offsetDisplay = document.getElementById("offset-display");
-        const coordsDisplay = document.getElementById("coords-display");
-        
-        let activeCountryOffset = null;
+        // --- VARIABILI DI STATO ---
+        let activeCountry = null; // Paese sotto il mouse
+        let lastSunUpdate = 0;
 
-        function updateCountryInfo(name, id, offset) {
-            infoName.innerText = name;
-            infoId.innerText = (id !== "NULL") ? `ISO ID: ${id}` : "SECTOR: OPEN SEA";
-            infoName.style.color = (name !== "OCEAN WATERS") ? "#00ffcc" : "#555";
-        }
-
-        // --- SCANNER LOGIC ---
-        mapWrapper.addEventListener("mousemove", (e) => {
-            const rect = mapWrapper.getBoundingClientRect();
+        // --- GESTIONE MOUSE (Scanner) ---
+        mapContainer.addEventListener("mousemove", (e) => {
+            const rect = mapContainer.getBoundingClientRect();
             const x = e.clientX - rect.left;
             const y = e.clientY - rect.top;
 
-            scannerX.style.left = x + "px";
-            scannerY.style.top = y + "px";
-            scannerLabel.style.left = (x + 15) + "px";
-            scannerLabel.style.top = (y - 20) + "px";
-            scannerLabel.style.display = "block";
+            // Muovi linee
+            document.getElementById("scanner-x").style.left = x + "px";
+            document.getElementById("scanner-y").style.top = y + "px";
 
+            // Calcola coordinate
             const coords = projection.invert([x, y]);
-            if (!coords) return;
+            if(!coords) return;
             const [lon, lat] = coords;
 
-            // Update Coordinate Display
-            coordsDisplay.innerText = `${Math.abs(lat).toFixed(1)}°${lat>0?'N':'S'}, ${Math.abs(lon).toFixed(1)}°${lon>0?'E':'W'}`;
-
-            // Gestione Offset (Politico o Geometrico)
-            let offset = activeCountryOffset;
-            if (offset === null) offset = Math.round(lon / 15);
-
-            const sign = offset >= 0 ? "+" : "";
-            const timeInZone = DateTime.now().toUTC().plus({ hours: offset }).toFormat("HH:mm");
+            // Determina Offset e Nome
+            let offset, name, detail;
             
-            offsetDisplay.innerText = `UTC ${sign}${offset} (${timeInZone})`;
-            scannerLabel.innerText = `UTC ${sign}${offset}`;
+            if (activeCountry) {
+                // Se siamo sopra una terra emersa
+                offset = activeCountry.properties.utcOffset;
+                name = activeCountry.properties.name;
+                detail = `ID: ${activeCountry.id}`;
+            } else {
+                // Se siamo sull'oceano (Geometria pura)
+                offset = Math.round(lon / 15);
+                name = "OCEAN / INTL WATERS";
+                detail = "GEOMETRIC ZONE";
+            }
 
-            // Highlight zone (Simile a prima)
-            const allLands = gLand.selectAll("path");
-            allLands.classed("same-zone", false);
-            allLands.filter(d => d.properties.utcOffset === offset).classed("same-zone", true);
+            // Aggiorna Footer (Zona Azzurra)
+            const sign = offset >= 0 ? "+" : "";
+            const zoneTime = DateTime.now().toUTC().plus({ hours: offset });
+            
+            document.getElementById("inf-country").innerText = name;
+            document.getElementById("inf-detail").innerText = detail;
+            document.getElementById("inf-offset").innerText = `UTC ${sign}${offset} [${zoneTime.toFormat("HH:mm")}]`;
+            document.getElementById("inf-coords").innerText = `${lat.toFixed(2)}° N, ${lon.toFixed(2)}° E`;
+
+            // Aggiorna Label Cursore
+            const tag = document.getElementById("scanner-tag");
+            tag.style.display = "block";
+            tag.style.left = (x + 10) + "px";
+            tag.style.top = (y - 20) + "px";
+            tag.innerText = `UTC ${sign}${offset}`;
+
+            // Highlight Fascia Geometrica corrispondente
+            // (Disattiva highlight nazioni sorelle per pulizia, o riattiva se preferisci)
+            // Qui evidenziamo la nazione sotto il mouse (fatto via CSS .hovered)
         });
 
-        // --- TEMPO & SOLE (Fix Zona Gialla) ---
-        function updateSolarTerminator(date = new Date()) {
+        // --- CICLO GIORNO/NOTTE ---
+        function updateSolarTerminator() {
+            const now = new Date();
+            // Calcolo approssimato zenit solare
             const rad = Math.PI / 180;
-            const day = Math.floor((date - new Date(date.getFullYear(), 0, 0)) / 86400000);
+            const day = Math.floor((now - new Date(now.getFullYear(), 0, 0)) / 86400000);
             const declination = -23.44 * Math.cos(rad * 360 / 365 * (day + 10));
-            const utcHours = date.getUTCHours() + date.getUTCMinutes()/60;
-            const antiSun = [(-15 * (utcHours - 12)) + 180, -declination];
+            const utcHours = now.getUTCHours() + now.getUTCMinutes()/60;
+            const antiSunLon = ((-15 * (utcHours - 12)) + 180);
             
-            const circle = d3.geoCircle().center(antiSun).radius(90)();
+            const circle = d3.geoCircle().center([antiSunLon, -declination]).radius(90)();
             const nightPath = gNight.selectAll("path").data([circle]);
             nightPath.enter().append("path")
                 .attr("class", "night night-blur")
                 .merge(nightPath).attr("d", path);
         }
 
-        let lastSunUpdate = 0;
-        
+        // --- LOOP TEMPORALE COMPLETO (Zona Gialla) ---
         function updateLoop() {
             const now = DateTime.now();
             
-            // --- AGGIORNAMENTO ZONA GIALLA (TUTTI I DATI) ---
             // Macro
-            document.getElementById('t-era').innerText = (now.year + 10000) + " HE";
-            document.getElementById('t-mil').innerText = Math.ceil(now.year / 1000);
-            document.getElementById('t-cen').innerText = Math.ceil(now.year / 100);
-            document.getElementById('t-year').innerText = now.year;
+            document.getElementById("d-era").innerText = (now.year + 10000) + " HE";
+            document.getElementById("d-mil").innerText = Math.ceil(now.year / 1000);
+            document.getElementById("d-cen").innerText = Math.ceil(now.year / 100);
             
-            // Medio
-            document.getElementById('t-week').innerText = now.weekNumber;
-            document.getElementById('t-day').innerText = now.ordinal; // Giorno dell'anno
-            document.getElementById('t-hms').innerText = now.toFormat('HH:mm:ss');
-            
-            // Micro (Reale + Simulato)
-            document.getElementById('t-ms').innerText = "." + now.toFormat('SSS');
-            
-            // Simulazione Micro e Nanosecondi (Estetica)
-            // Generiamo numeri casuali perché il browser non ha precisione nanosecondo
-            const micro = Math.floor(Math.random() * 999).toString().padStart(3, '0');
-            const nano = Math.floor(Math.random() * 999).toString().padStart(3, '0');
-            document.getElementById('t-micro').innerText = micro;
-            document.getElementById('t-nano').innerText = nano;
+            // Standard
+            document.getElementById("d-year").innerText = now.year;
+            document.getElementById("d-month").innerText = now.toFormat("MMMM").toUpperCase(); // Nome mese
+            document.getElementById("d-week").innerText = now.weekNumber;
+            document.getElementById("d-hms").innerText = now.toFormat("HH:mm:ss");
 
-            // Aggiornamento Sole (Ogni 1s)
+            // Micro (Simulazione Realistica)
+            // Millisecondi reali
+            document.getElementById("d-ms").innerText = "." + now.toFormat("SSS");
+            
+            // Micro e Nano simulati (Per effetto scenico "high precision")
+            // Usiamo performance.now() per avere numeri che cambiano davvero velocemente
+            const highRes = performance.now().toFixed(3).split('.')[1]; 
+            const randomNano = Math.floor(Math.random() * 999).toString().padStart(3,'0');
+            
+            document.getElementById("d-micro").innerText = highRes;
+            document.getElementById("d-nano").innerText = randomNano;
+
+            // Aggiorna Sole ogni secondo
             if (new Date().getTime() - lastSunUpdate > 1000) {
                 updateSolarTerminator();
                 lastSunUpdate = new Date().getTime();
             }
+
             requestAnimationFrame(updateLoop);
         }
 
